@@ -4,7 +4,14 @@
   "packageManager": "pnpm@10.26.0",
   "scripts": {
     "dev": "concurrently --kill-others -n api,web \"pnpm --dir apps/api start:dev\" \"pnpm --dir apps/web dev\"",
-    "build": "pnpm --dir apps/api build && pnpm --dir apps/web build"
+    "build": "pnpm --dir apps/api build && pnpm --dir apps/web build",
+    "db:up": "docker compose up -d --wait postgres",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f postgres",
+    "db:generate": "pnpm --dir apps/api db:generate",
+    "db:migrate": "pnpm --dir apps/api db:migrate",
+    "db:push": "pnpm --dir apps/api db:push",
+    "db:studio": "pnpm --dir apps/api db:studio"
   },
   "devDependencies": {
     "concurrently": "^10.0.7"
