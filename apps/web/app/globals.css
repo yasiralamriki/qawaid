@@ -46,6 +46,24 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  --animate-grid-pattern-square: grid-pattern-square calc(36s / max(var(--grid-pattern-speed, 1), 0.001)) ease-in-out calc(var(--grid-pattern-phase, 0.5) * -36s / max(var(--grid-pattern-speed, 1), 0.001)) infinite;
+  @keyframes grid-pattern-square {
+  0%, 28%, 100% {
+    opacity: 0;
+    translate: 0 0;
+    }
+  8%, 17%, 41.33%, 50.33%, 74.67%, 83.67% {
+    opacity: calc(0.5 + mod(var(--grid-pattern-u, 0.5) * 7.3, 1) * 0.5);
+    }
+  33.33%, 61.33% {
+    opacity: 0;
+    translate: calc(var(--grid-pattern-size, 40px) * 3) calc(var(--grid-pattern-size, 40px) * -2);
+    }
+  66.67%, 94.67% {
+    opacity: 0;
+    translate: calc(var(--grid-pattern-size, 40px) * -2) calc(var(--grid-pattern-size, 40px) * 3);
+    }
+  }
 }
 
 :root {
@@ -127,4 +145,83 @@
   html {
     @apply font-sans;
   }
+}
+
+@utility grid-pattern-glow {
+  @media (prefers-reduced-motion: no-preference) {
+    &[data-pointer="move"] {
+      --grid-pattern-follow: 150ms;
+    }
+  }
+  &[data-pointer] {
+    opacity: 1;
+  }
+    background-image: radial-gradient(closest-side, color-mix(in oklab, var(--grid-pattern-accent, var(--foreground)) 46%, transparent), color-mix(in oklab, var(--grid-pattern-accent, var(--foreground)) 20%, transparent) 42%, transparent);
+    height: calc(var(--grid-pattern-radius, 180px) * 2);
+    left: 0;
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    transition: opacity 300ms ease-out, translate var(--grid-pattern-follow, 0s) cubic-bezier(0.22, 1, 0.36, 1);
+    translate: calc(var(--grid-pattern-x, 0px) - var(--grid-pattern-radius, 180px)) calc(var(--grid-pattern-y, 0px) - var(--grid-pattern-radius, 180px));
+    width: calc(var(--grid-pattern-radius, 180px) * 2);
+    will-change: translate;
+}
+
+@utility grid-pattern-layer {
+    --grid-pattern-mx: mod(round(down, 50cqw - var(--grid-pattern-size, 40px) / 2, 1px) - round(down, var(--grid-pattern-major, 5) / 2, 1) * var(--grid-pattern-size, 40px), calc(var(--grid-pattern-size, 40px) * var(--grid-pattern-major, 5)));
+    --grid-pattern-my: mod(round(down, 50cqh - var(--grid-pattern-size, 40px) / 2, 1px) - round(down, var(--grid-pattern-major, 5) / 2, 1) * var(--grid-pattern-size, 40px), calc(var(--grid-pattern-size, 40px) * var(--grid-pattern-major, 5)));
+    --grid-pattern-nudge: round(down, calc(var(--grid-pattern-size, 40px) / 8) / 2, 1px);
+    --grid-pattern-ox: mod(round(down, 50cqw - var(--grid-pattern-size, 40px) / 2, 1px), var(--grid-pattern-size, 40px));
+    --grid-pattern-oy: mod(round(down, 50cqh - var(--grid-pattern-size, 40px) / 2, 1px), var(--grid-pattern-size, 40px));
+  &[data-fade=bottom] {
+    mask-image: linear-gradient(to bottom, #000 45%, transparent);
+  }
+  &[data-fade=left] {
+    mask-image: linear-gradient(to left, #000 45%, transparent);
+  }
+  &[data-fade=radial] {
+    mask-image: radial-gradient(farthest-side, #000 45%, transparent);
+  }
+  &[data-fade=right] {
+    mask-image: linear-gradient(to right, #000 45%, transparent);
+  }
+  &[data-fade=top] {
+    mask-image: linear-gradient(to top, #000 45%, transparent);
+  }
+    container-type: size;
+}
+
+@utility grid-pattern-lines {
+  [data-dashed] > & {
+    background-image: conic-gradient(from 270deg at var(--grid-pattern-line-width, 1px) calc(var(--grid-pattern-size, 40px) / 8), var(--grid-pattern-heavy, transparent) 90deg, transparent 0), conic-gradient(from 270deg at calc(var(--grid-pattern-size, 40px) / 8) var(--grid-pattern-line-width, 1px), var(--grid-pattern-heavy, transparent) 90deg, transparent 0), conic-gradient(from 270deg at var(--grid-pattern-line-width, 1px) calc(var(--grid-pattern-size, 40px) / 8), color-mix(in oklab, var(--grid-pattern-accent, var(--foreground)) 14%, var(--grid-pattern-color, var(--border))) 90deg, transparent 0), conic-gradient(from 270deg at calc(var(--grid-pattern-size, 40px) / 8) var(--grid-pattern-line-width, 1px), color-mix(in oklab, var(--grid-pattern-accent, var(--foreground)) 14%, var(--grid-pattern-color, var(--border))) 90deg, transparent 0);
+  }
+  [data-major] > & {
+    --grid-pattern-heavy: color-mix(in oklab, var(--grid-pattern-accent, var(--foreground)) 14%, var(--grid-pattern-color, var(--border)));
+  }
+    background-image: linear-gradient(to right, var(--grid-pattern-heavy, transparent) var(--grid-pattern-line-width, 1px), transparent var(--grid-pattern-line-width, 1px)), linear-gradient(to bottom, var(--grid-pattern-heavy, transparent) var(--grid-pattern-line-width, 1px), transparent var(--grid-pattern-line-width, 1px)), linear-gradient(to right, var(--grid-pattern-color, var(--border)) var(--grid-pattern-line-width, 1px), transparent var(--grid-pattern-line-width, 1px)), linear-gradient(to bottom, var(--grid-pattern-color, var(--border)) var(--grid-pattern-line-width, 1px), transparent var(--grid-pattern-line-width, 1px));
+    background-position: var(--grid-pattern-mx) calc(var(--grid-pattern-oy) - var(--grid-pattern-nudge)), calc(var(--grid-pattern-ox) - var(--grid-pattern-nudge)) var(--grid-pattern-my), var(--grid-pattern-ox) calc(var(--grid-pattern-oy) - var(--grid-pattern-nudge)), calc(var(--grid-pattern-ox) - var(--grid-pattern-nudge)) var(--grid-pattern-oy);
+    background-size: calc(var(--grid-pattern-size, 40px) * var(--grid-pattern-major, 5)) calc(var(--grid-pattern-size, 40px) / 4), calc(var(--grid-pattern-size, 40px) / 4) calc(var(--grid-pattern-size, 40px) * var(--grid-pattern-major, 5)), var(--grid-pattern-size, 40px) calc(var(--grid-pattern-size, 40px) / 4), calc(var(--grid-pattern-size, 40px) / 4) var(--grid-pattern-size, 40px);
+}
+
+@utility grid-pattern-lit {
+  [data-dashed] > & {
+    mask-image: conic-gradient(from 270deg at var(--grid-pattern-line-width, 1px) calc(var(--grid-pattern-size, 40px) / 8), #000 90deg, transparent 0), conic-gradient(from 270deg at calc(var(--grid-pattern-size, 40px) / 8) var(--grid-pattern-line-width, 1px), #000 90deg, transparent 0);
+  }
+    mask-image: linear-gradient(to right, #000 var(--grid-pattern-line-width, 1px), transparent var(--grid-pattern-line-width, 1px)), linear-gradient(to bottom, #000 var(--grid-pattern-line-width, 1px), transparent var(--grid-pattern-line-width, 1px));
+    mask-position: var(--grid-pattern-ox) calc(var(--grid-pattern-oy) - var(--grid-pattern-nudge)), calc(var(--grid-pattern-ox) - var(--grid-pattern-nudge)) var(--grid-pattern-oy);
+    mask-size: var(--grid-pattern-size, 40px) calc(var(--grid-pattern-size, 40px) / 4), calc(var(--grid-pattern-size, 40px) / 4) var(--grid-pattern-size, 40px);
+}
+
+@utility grid-pattern-square {
+  @supports not (left: round(down, 1px, 1px)) {
+    display: none;
+  }
+    background-color: color-mix(in oklab, var(--grid-pattern-accent, var(--foreground)) 12%, transparent);
+    height: calc(var(--grid-pattern-size, 40px) - var(--grid-pattern-line-width, 1px));
+    left: calc(var(--grid-pattern-ox) + round(down, var(--grid-pattern-u, 0.5) * 100cqw - var(--grid-pattern-ox), var(--grid-pattern-size, 40px)) + var(--grid-pattern-line-width, 1px));
+    opacity: 0;
+    position: absolute;
+    top: calc(var(--grid-pattern-oy) + round(down, var(--grid-pattern-v, 0.5) * 100cqh - var(--grid-pattern-oy), var(--grid-pattern-size, 40px)) + var(--grid-pattern-line-width, 1px));
+    width: calc(var(--grid-pattern-size, 40px) - var(--grid-pattern-line-width, 1px));
 }
