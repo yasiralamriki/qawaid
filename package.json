@@ -6,12 +6,23 @@
     "dev": "concurrently --kill-others -n api,web \"pnpm --dir apps/api start:dev\" \"pnpm --dir apps/web dev\"",
     "build": "pnpm --dir apps/api build && pnpm --dir apps/web build",
     "db:up": "docker compose up -d --wait postgres",
-    "db:down": "docker compose down",
+    "db:down": "docker compose stop postgres",
     "db:logs": "docker compose logs -f postgres",
     "db:generate": "pnpm --dir apps/api db:generate",
     "db:migrate": "pnpm --dir apps/api db:migrate",
     "db:push": "pnpm --dir apps/api db:push",
-    "db:studio": "pnpm --dir apps/api db:studio"
+    "db:studio": "pnpm --dir apps/api db:studio",
+    "docker:up": "docker compose up --build -d --wait",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "docker:start": "docker compose up -d --wait",
+    "docker:stop": "docker compose stop",
+    "docker:restart": "docker compose restart",
+    "docker:build": "docker compose build",
+    "docker:status": "docker compose ps",
+    "docker:db:generate": "docker compose exec api pnpm db:generate",
+    "docker:db:migrate": "docker compose exec api pnpm db:migrate",
+    "docker:db:push": "docker compose exec api pnpm db:push"
   },
   "devDependencies": {
     "concurrently": "^10.0.7"

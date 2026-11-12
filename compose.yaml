@@ -19,5 +19,63 @@ services:
       retries: 12
       start_period: 10s
 
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    init: true
+    working_dir: /workspace/apps/api
+    command: pnpm start:dev
+    environment:
+      PORT: "4000"
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER:-qawaid}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the root .env}
+      PGDATABASE: ${POSTGRES_DB:-qawaid}
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - ./apps/api/src:/workspace/apps/api/src:ro
+      - ./apps/api/drizzle:/workspace/apps/api/drizzle
+      - ./apps/api/drizzle.config.ts:/workspace/apps/api/drizzle.config.ts:ro
+      - ./apps/api/tsconfig.json:/workspace/apps/api/tsconfig.json:ro
+      - ./apps/api/tsconfig.build.json:/workspace/apps/api/tsconfig.build.json:ro
+      - ./apps/api/nest-cli.json:/workspace/apps/api/nest-cli.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health/database').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    init: true
+    working_dir: /workspace/apps/web
+    command: pnpm dev --hostname 0.0.0.0
+    environment:
+      API_URL: http://api:4000
+      NEXT_TELEMETRY_DISABLED: "1"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./apps/web/app:/workspace/apps/web/app:ro
+      - ./apps/web/components:/workspace/apps/web/components:ro
+      - ./apps/web/lib:/workspace/apps/web/lib:ro
+      - ./apps/web/ui:/workspace/apps/web/ui:ro
+      - ./apps/web/public:/workspace/apps/web/public:ro
+      - ./apps/web/next.config.ts:/workspace/apps/web/next.config.ts:ro
+      - ./apps/web/tsconfig.json:/workspace/apps/web/tsconfig.json:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   postgres_data:
