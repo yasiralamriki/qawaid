@@ -5,6 +5,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.setGlobalPrefix('api');
   app.enableShutdownHooks();
+  app.enableCsrfProtection({ trustedOrigins: ['http://localhost:3000']})
   await app.listen(process.env.PORT ?? 4000);
 }
 

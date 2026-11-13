@@ -1,5 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
+import { Public } from '@nestjs/authentication';
 import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
@@ -7,6 +8,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 export class DatabaseController {
   constructor(@InjectDrizzle() private readonly db: NodePgDatabase) {}
 
+  @Public()
   @Get('database')
   async database() {
     try {

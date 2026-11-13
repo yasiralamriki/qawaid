@@ -1,4 +1,5 @@
-import { integer, jsonb, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { integer, jsonb, pgEnum, pgTable, text, timestamp, uuid, varchar, check, index } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 export const filingStatus = pgEnum('filing_status', [
   'DRAFT',
@@ -6,6 +7,10 @@ export const filingStatus = pgEnum('filing_status', [
   'UNDER_REVIEW',
   'APPROVED',
   'REJECTED',
+]);
+
+export const userRole = pgEnum('user_role', [
+  'SUBMITTER', 'AUDITOR', 'SYSTEM_ADMIN',
 ]);
 
 export const tenants = pgTable('tenants', {
@@ -40,9 +45,41 @@ export const auditLogs = pgTable('audit_logs', {
   timestamp: timestamp('timestamp', { withTimezone: true }).defaultNow(),
 });
 
+export const users = pgTable('users', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  username: varchar('username', { length: 120 }).notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'restrict' }),
+  role: userRole('role').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  check('users_tenant_role_check', sql`
+    (${table.role} = 'SYSTEM_ADMIN' AND ${table.tenantId} IS NULL)
+    OR (${table.role} <> 'SYSTEM_ADMIN' AND ${table.tenantId} IS NOT NULL)
+  `),
+]);
+
+export const authSessions = pgTable('auth_sessions', {
+  // Session IDs are token hashes supplied by the authentication package, not UUIDs.
+  id: text('id').primaryKey(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  lastActiveAt: timestamp('last_active_at', { withTimezone: true }).notNull(),
+  mfa: text('mfa', { enum: ['pending', 'verified'] }),
+  metadata: jsonb('metadata').$type<Record<string, unknown>>(),
+}, (table) => [
+  index('auth_sessions_user_idx').on(table.userId),
+  index('auth_sessions_expiry_idx').on(table.expiresAt),
+]);
+
 export type Tenant = typeof tenants.$inferSelect;
 export type NewTenant = typeof tenants.$inferInsert;
 export type ComplianceFiling = typeof complianceFilings.$inferSelect;
 export type NewComplianceFiling = typeof complianceFilings.$inferInsert;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type AuthSession = typeof authSessions.$inferSelect;
+export type NewAuthSession = typeof authSessions.$inferInsert;

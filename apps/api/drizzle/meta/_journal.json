@@ -8,6 +8,13 @@
       "when": 1794476933230,
       "tag": "0000_compliance_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794583619381,
+      "tag": "0001_authentication",
+      "breakpoints": true
     }
   ]
 }
