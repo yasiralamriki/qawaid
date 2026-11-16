@@ -30,6 +30,7 @@ export const complianceFilings = pgTable('compliance_filings', {
   assignedReviewerId: uuid('assigned_reviewer_id'),
   rejectionReason: text('rejection_reason'),
   externalReferenceId: varchar('external_reference_id', { length: 100 }),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'restrict' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
 });
