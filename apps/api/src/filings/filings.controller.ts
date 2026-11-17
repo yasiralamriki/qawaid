@@ -26,6 +26,17 @@ export class FilingsController {
     return this.filings.findForUser(user, page, limit);
   }
 
+  @Get('dashboard-stats')
+  getDashboardStats(@CurrentUser() user: AppUser): Promise<{
+    totalFilings: number;
+    draftFilings: number;
+    submittedFilings: number;
+    approvedFilings: number;
+    rejectedFilings: number;
+  }> {
+    return this.filings.getDashboardStats(user);
+  }
+
   @Post()
   createDraft(
     @CurrentUser() user: AppUser,

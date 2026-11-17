@@ -4,7 +4,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, desc, eq, inArray, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { AppUser } from '../users/user.js';
 import {
@@ -79,6 +79,51 @@ export class FilingsService {
       .orderBy(desc(complianceFilings.createdAt), desc(complianceFilings.id))
       .limit(limit)
       .offset((page - 1) * limit);
+  }
+
+  async getDashboardStats(user: AppUser): Promise<{
+    totalFilings: number;
+    draftFilings: number;
+    submittedFilings: number;
+    approvedFilings: number;
+    rejectedFilings: number;
+  }> {
+    if (!user.tenantId) {
+      throw new ForbiddenException('A company is required');
+    }
+
+    const tenantFilter = eq(complianceFilings.tenantId, user.tenantId);
+
+    const [total, draft, submitted, approved, rejected] = await Promise.all([
+      this.db
+        .select({ count: count(complianceFilings.id) })
+        .from(complianceFilings)
+        .where(tenantFilter),
+      this.db
+        .select({ count: count(complianceFilings.id) })
+        .from(complianceFilings)
+        .where(and(tenantFilter, eq(complianceFilings.status, 'DRAFT'))),
+      this.db
+        .select({ count: count(complianceFilings.id) })
+        .from(complianceFilings)
+        .where(and(tenantFilter, eq(complianceFilings.status, 'SUBMITTED'))),
+      this.db
+        .select({ count: count(complianceFilings.id) })
+        .from(complianceFilings)
+        .where(and(tenantFilter, eq(complianceFilings.status, 'APPROVED'))),
+      this.db
+        .select({ count: count(complianceFilings.id) })
+        .from(complianceFilings)
+        .where(and(tenantFilter, eq(complianceFilings.status, 'REJECTED'))),
+    ]);
+    
+    return {
+      totalFilings: Number(total[0]?.count ?? 0),
+      draftFilings: Number(draft[0]?.count ?? 0),
+      submittedFilings: Number(submitted[0]?.count ?? 0),
+      approvedFilings: Number(approved[0]?.count ?? 0),
+      rejectedFilings: Number(rejected[0]?.count ?? 0),
+    };
   }
 
   async createDraft(

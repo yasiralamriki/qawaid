@@ -98,9 +98,31 @@ async function fetchLatestFilings(): Promise<Filing[]> {
   return response.json();
 }
 
+async function fetchDashboardStats(): Promise<{
+  totalFilings: number;
+  draftFilings: number;
+  submittedFilings: number;
+  approvedFilings: number;
+  rejectedFilings: number;
+}> {
+  const cookieStore = await cookies();
+  const response = await fetch(
+    new URL("/api/filings/dashboard-stats", process.env.API_URL ?? "http://localhost:4000"),
+    {
+      headers: { cookie: cookieStore.toString() },
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) throw new Error("Unable to load dashboard stats");
+
+  return response.json();
+}
+
 export default async function Dashboard() {
   const userData = await fetchCurrentUser();
   const filingsData = await fetchLatestFilings();
+  const dashboardStats = await fetchDashboardStats();
 
   const title =
     userData && userData.role === "SUBMITTER"
@@ -114,19 +136,19 @@ export default async function Dashboard() {
       <h1 className="text-2xl font-bold">Welcome back, {userData && userData.username}!</h1>
       <div className="flex flex-row justify-between gap-6">
         <Card className="flex-1 justify-center items-center">
-          <h1 className="text-3xl font-bold text-muted-foreground">0</h1>
+          <h1 className="text-3xl font-bold text-muted-foreground">{dashboardStats.draftFilings}</h1>
           <p className="text-xl text-foreground">Drafts</p>
         </Card>
         <Card className="flex-1 justify-center items-center">
-          <h1 className="text-3xl font-bold text-yellow-500">0</h1>
+          <h1 className="text-3xl font-bold text-yellow-500">{dashboardStats.submittedFilings}</h1>
           <p className="text-xl text-foreground">Submitted</p>
         </Card>
         <Card className="flex-1 justify-center items-center">
-          <h1 className="text-3xl font-bold text-primary">0</h1>
+          <h1 className="text-3xl font-bold text-primary">{dashboardStats.approvedFilings}</h1>
           <p className="text-xl text-foreground">Approved</p>
         </Card>
         <Card className="flex-1 justify-center items-center">
-          <h1 className="text-3xl font-bold text-red-500">0</h1>
+          <h1 className="text-3xl font-bold text-red-500">{dashboardStats.rejectedFilings}</h1>
           <p className="text-xl text-foreground">Rejected</p>
         </Card>
       </div>
