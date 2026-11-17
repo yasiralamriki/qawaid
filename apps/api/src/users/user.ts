@@ -5,6 +5,7 @@ export interface AppUser {
   username: string;
   tenantId: string | null;
   tenantName: string | null;
+  tenantIdentifierCr: string | null;
   role: Role;
 }
 

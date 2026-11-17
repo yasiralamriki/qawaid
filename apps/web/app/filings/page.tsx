@@ -32,6 +32,7 @@ interface CurrentUser {
   username: string;
   tenantId: string | null;
   tenantName: string | null;
+  tenantIdentifierCr: string | null;
   role: "SUBMITTER" | "AUDITOR" | "SYSTEM_ADMIN";
 }
 
@@ -230,7 +231,7 @@ async function FilingsContent() {
                   <Input
                     id="companyname-1"
                     name="companyname"
-                    defaultValue="Aram Organics"
+                    defaultValue={userData.tenantName ?? ""}
                   />
                 </Field>
                 <Field>
@@ -238,7 +239,7 @@ async function FilingsContent() {
                   <Input
                     id="companyregistrationnumber-1"
                     name="companyregistrationnumber"
-                    defaultValue="123456789"
+                    defaultValue={userData.tenantIdentifierCr ?? ""}
                   />
                 </Field>
               </FieldGroup>

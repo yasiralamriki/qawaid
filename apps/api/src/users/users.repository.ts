@@ -10,6 +10,7 @@ const publicFields = {
   username: users.username,
   tenantId: users.tenantId,
   tenantName: tenants.name,
+  tenantIdentifierCr: tenants.identifierCr,
   role: users.role,
 };
 
