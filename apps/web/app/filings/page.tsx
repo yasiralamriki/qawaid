@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { FileText, Inbox, Plus } from "lucide-react";
+import { FileText, Form, Inbox, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -110,15 +110,32 @@ const statusLabels = {
   REJECTED: "Rejected",
 };
 
+const formErrors = {
+  "invalid-fields": "Enter a valid title and category.",
+  forbidden: "Your account cannot create filings.",
+  "save-failed": "Unable to save the filing. Please try again.",
+  connection: "Unable to connect to the server. Please try again.",
+};
+
+type FormErrorCode = keyof typeof formErrors;
+
+type FilingSearchParams = Promise<
+  Record<string, string | string[] | undefined>
+>;
+
 async function createFiling(formData: FormData, submitForReview: boolean) {
   const title = formData.get("title");
   const category = formData.get("category");
 
   if (
-    typeof title !== "string" || !title.trim() || title.trim().length > 255 ||
-    typeof category !== "string" || !category.trim() || category.trim().length > 50
+    typeof title !== "string" ||
+    !title.trim() ||
+    title.trim().length > 255 ||
+    typeof category !== "string" ||
+    !category.trim() ||
+    category.trim().length > 50
   ) {
-    throw new Error("A valid title and category are required.");
+    redirect("/filings?formError=invalid-fields");
   }
 
   const cookieStore = await cookies();
@@ -139,8 +156,10 @@ async function createFiling(formData: FormData, submitForReview: boolean) {
   );
 
   if (response.status === 401) redirect("/login");
-  if (response.status === 403) throw new Error("Your account cannot create filings.");
-  if (!response.ok) throw new Error("Unable to save the filing. Please try again.");
+  if (response.status === 403) redirect("/filings?formError=forbidden");
+  if (response.status === 400 || response.status === 422)
+    redirect("/filings?formError=invalid-fields");
+  if (!response.ok) redirect("/filings?formError=save-failed");
 
   revalidatePath("/filings");
   redirect("/filings");
@@ -156,7 +175,22 @@ async function submitForReview(formData: FormData) {
   await createFiling(formData, true);
 }
 
-async function FilingsContent() {
+async function FilingsContent({
+  searchParams,
+}: {
+  searchParams: FilingSearchParams;
+}) {
+  const params = await searchParams;
+  const rawError = params.formError;
+
+  const errorCode =
+    typeof rawError === "string" &&
+    Object.prototype.hasOwnProperty.call(formErrors, rawError)
+      ? (rawError as FormErrorCode)
+      : undefined;
+
+  const errorMessage = errorCode ? formErrors[errorCode] : undefined;
+
   const userData = await fetchCurrentUser();
   if (!userData) redirect("/login");
 
@@ -182,78 +216,102 @@ async function FilingsContent() {
             </p>
           </div>
         </div>
-        {userData.role === "SUBMITTER" && <Dialog>
+        {userData.role === "SUBMITTER" && (
+          <Dialog
+            key={errorCode ?? "new-filing"}
+            defaultOpen={Boolean(errorMessage)}
+          >
             <DialogTrigger
               render={
-                <Button type="button" className="w-full gap-2 shadow-sm sm:w-auto">
-                <Plus className="size-4" aria-hidden="true" />
-                New Filing
+                <Button
+                  type="button"
+                  className="w-full gap-2 shadow-sm sm:w-auto"
+                >
+                  <Plus className="size-4" aria-hidden="true" />
+                  New Filing
                 </Button>
               }
             />
             <DialogContent className="sm:max-w-sm">
               <form action={submitDraft} className="space-y-6">
-              <DialogHeader>
-                <DialogTitle>New Filing</DialogTitle>
-                <DialogDescription>
-                  Create a new filing to submit for review and compliance
-                  approval.
-                </DialogDescription>
-              </DialogHeader>
-              <FieldGroup>
-                <Field>
-                  <Label htmlFor="title-1">Title</Label>
-                  <Input id="title-1" name="title" placeholder="Warehouse License Renewal" maxLength={255} required />
-                </Field>
-                <Field>
-                  <Label htmlFor="category-1">Category</Label>
-                  <Input
-                    id="category-1"
-                    name="category"
-                    placeholder="License Renewal"
-                    maxLength={50}
-                    required
-                  />
-                </Field>
-                <Field>
-                  <Label htmlFor="expirationdate-1">Expiration Date</Label>
-                  <Input
-                    id="expirationdate-1"
-                    name="expirationdate"
-                    type="date"
-                    defaultValue="2023-12-31"
-                  />
-                </Field>
-              </FieldGroup>
-              <FieldGroup>
-                <Field>
-                  <Label htmlFor="companyname-1">Company Name</Label>
-                  <Input
-                    id="companyname-1"
-                    name="companyname"
-                    defaultValue={userData.tenantName ?? ""}
-                  />
-                </Field>
-                <Field>
-                  <Label htmlFor="companyregistrationnumber-1">Company Registration Number</Label>
-                  <Input
-                    id="companyregistrationnumber-1"
-                    name="companyregistrationnumber"
-                    defaultValue={userData.tenantIdentifierCr ?? ""}
-                  />
-                </Field>
-              </FieldGroup>
-              <DialogFooter>
-                <Button type="submit" variant="secondary">
-                  Save Draft
-                </Button>
-                <Button type="submit" formAction={submitForReview}>
-                  Submit for Review
-                </Button>
-              </DialogFooter>
+                <DialogHeader>
+                  {errorMessage && (
+                    <p
+                      role="alert"
+                      className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                    >
+                      {errorMessage}
+                    </p>
+                  )}
+                  <DialogTitle>New Filing</DialogTitle>
+                  <DialogDescription>
+                    Create a new filing to submit for review and compliance
+                    approval.
+                  </DialogDescription>
+                </DialogHeader>
+                <FieldGroup>
+                  <Field>
+                    <Label htmlFor="title-1">Title</Label>
+                    <Input
+                      id="title-1"
+                      name="title"
+                      placeholder="Warehouse License Renewal"
+                      maxLength={255}
+                      required
+                    />
+                  </Field>
+                  <Field>
+                    <Label htmlFor="category-1">Category</Label>
+                    <Input
+                      id="category-1"
+                      name="category"
+                      placeholder="License Renewal"
+                      maxLength={50}
+                      required
+                    />
+                  </Field>
+                  <Field>
+                    <Label htmlFor="expirationdate-1">Expiration Date</Label>
+                    <Input
+                      id="expirationdate-1"
+                      name="expirationdate"
+                      type="date"
+                      defaultValue="2023-12-31"
+                    />
+                  </Field>
+                </FieldGroup>
+                <FieldGroup>
+                  <Field>
+                    <Label htmlFor="companyname-1">Company Name</Label>
+                    <Input
+                      id="companyname-1"
+                      name="companyname"
+                      defaultValue={userData.tenantName ?? ""}
+                    />
+                  </Field>
+                  <Field>
+                    <Label htmlFor="companyregistrationnumber-1">
+                      Company Registration Number
+                    </Label>
+                    <Input
+                      id="companyregistrationnumber-1"
+                      name="companyregistrationnumber"
+                      defaultValue={userData.tenantIdentifierCr ?? ""}
+                    />
+                  </Field>
+                </FieldGroup>
+                <DialogFooter>
+                  <Button type="submit" variant="secondary">
+                    Save Draft
+                  </Button>
+                  <Button type="submit" formAction={submitForReview}>
+                    Submit for Review
+                  </Button>
+                </DialogFooter>
               </form>
             </DialogContent>
-        </Dialog>}
+          </Dialog>
+        )}
       </div>
       <Card className="min-w-0 gap-0 overflow-hidden rounded-xl py-0 shadow-sm">
         <div className="flex items-center justify-between gap-4 border-b px-5 py-4 sm:px-6">
@@ -363,7 +421,11 @@ async function FilingsContent() {
   );
 }
 
-export default function Filings() {
+export default function Filings({
+  searchParams,
+}: {
+  searchParams: FilingSearchParams;
+}) {
   return (
     <Suspense
       fallback={
@@ -372,7 +434,7 @@ export default function Filings() {
         </p>
       }
     >
-      <FilingsContent />
+      <FilingsContent searchParams={searchParams} />
     </Suspense>
   );
 }
