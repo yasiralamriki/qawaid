@@ -22,7 +22,24 @@ export interface CreateFilingInput {
 export class FilingsService {
   constructor(@InjectDrizzle() private readonly db: NodePgDatabase) {}
 
-  async findForUser(user: AppUser): Promise<ComplianceFiling[]> {
+  async findForUser(
+    user: AppUser,
+    page = 1,
+    limit = 20,
+  ): Promise<ComplianceFiling[]> {
+    if (
+      !Number.isSafeInteger(page) ||
+      page < 1 ||
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > 100 ||
+      !Number.isSafeInteger((page - 1) * limit)
+    ) {
+      throw new BadRequestException(
+        'page must be a positive integer; limit must be between 1 and 100',
+      );
+    }
+
     let accessFilter: SQL | undefined;
 
     if (user.role === 'SYSTEM_ADMIN') {
@@ -60,7 +77,8 @@ export class FilingsService {
       .from(complianceFilings)
       .where(accessFilter)
       .orderBy(desc(complianceFilings.createdAt), desc(complianceFilings.id))
-      .limit(50);
+      .limit(limit)
+      .offset((page - 1) * limit);
   }
 
   async createDraft(

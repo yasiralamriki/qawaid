@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  DefaultValuePipe,
+  Get,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CurrentUser } from '@nestjs/authentication';
 import type { AppUser } from '../users/user.js';
 import type { ComplianceFiling } from '../database/schema.js';
@@ -10,8 +18,12 @@ export class FilingsController {
   constructor(private readonly filings: FilingsService) {}
 
   @Get()
-  getFilings(@CurrentUser() user: AppUser): Promise<ComplianceFiling[]> {
-    return this.filings.findForUser(user);
+  getFilings(
+    @CurrentUser() user: AppUser,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+  ): Promise<ComplianceFiling[]> {
+    return this.filings.findForUser(user, page, limit);
   }
 
   @Post()
