@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { FileText, Form, Inbox, Plus } from "lucide-react";
+import { FileText, Inbox, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FieldGroup } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { DrawerTrigger } from "@/components/ui/drawer";
+import { FilingDrawer } from "@/components/filing-drawer";
 
 interface CurrentUser {
   id: string;
@@ -342,9 +344,16 @@ async function FilingsContent({
           <TableBody>
             {filingsData.length > 0 ? (
               filingsData.map((filing) => (
-                <TableRow
+                <FilingDrawer
                   key={filing.id}
-                  className="transition-colors hover:bg-primary/[0.03] [&>td]:py-4"
+                  filingId={filing.id}
+                  title={<>Audit History</>}
+                >
+                <DrawerTrigger
+                  nativeButton={false}
+                  render={<TableRow />}
+                  aria-label={`View filing: ${filing.title}`}
+                  className="cursor-pointer transition-colors hover:bg-primary/[0.03] focus-visible:outline-2 focus-visible:outline-ring [&>td]:py-4"
                 >
                   <TableCell className="pl-5 font-medium sm:pl-6">
                     <div className="flex items-center gap-3">
@@ -385,7 +394,8 @@ async function FilingsContent({
                       {filing.assignedReviewerId ?? "Unassigned"}
                     </span>
                   </TableCell>
-                </TableRow>
+                </DrawerTrigger>
+                </FilingDrawer>
               ))
             ) : (
               <TableRow className="hover:bg-transparent">

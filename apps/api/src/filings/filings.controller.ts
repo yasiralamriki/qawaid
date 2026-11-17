@@ -3,7 +3,9 @@ import {
   Controller,
   DefaultValuePipe,
   Get,
+  Param,
   ParseIntPipe,
+  ParseUUIDPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -24,6 +26,14 @@ export class FilingsController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ): Promise<ComplianceFiling[]> {
     return this.filings.findForUser(user, page, limit);
+  }
+
+  @Get(':id/audit-history')
+  getAuditHistory(
+    @CurrentUser() user: AppUser,
+    @Param('id', ParseUUIDPipe) filingId: string,
+  ) {
+    return this.filings.getAuditHistory(user, filingId);
   }
 
   @Get('dashboard-stats')

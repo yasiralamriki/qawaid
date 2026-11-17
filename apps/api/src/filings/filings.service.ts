@@ -81,6 +81,32 @@ export class FilingsService {
       .offset((page - 1) * limit);
   }
 
+  async getAuditHistory(user: AppUser, filingId: string) {
+    if (!user.tenantId) {
+      throw new ForbiddenException('A company is required');
+    }
+
+    const [filing] = await this.db
+      .select()
+      .from(complianceFilings)
+      .where(
+        and(
+          eq(complianceFilings.id, filingId),
+          eq(complianceFilings.tenantId, user.tenantId),
+        ),
+      )
+      .limit(1);
+
+    if (!filing) {
+      throw new ForbiddenException('Filing not found or access denied');
+    }
+
+    return this.db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.filingId, filingId))
+  }
+
   async getDashboardStats(user: AppUser): Promise<{
     totalFilings: number;
     draftFilings: number;
