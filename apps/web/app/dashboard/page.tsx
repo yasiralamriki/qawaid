@@ -23,6 +23,7 @@ interface CurrentUser {
 
 interface Filing {
   id: string;
+  version: number;
   title: string;
   category: string;
   status:
@@ -240,6 +241,7 @@ export default async function Dashboard() {
                     </TableCell>
                     <FilingActionsCell
                       filingId={filing.id}
+                      version={filing.version}
                       isDraft={filing.status === "DRAFT" && userData?.role === "SUBMITTER"}
                     />
                   </TableRow>

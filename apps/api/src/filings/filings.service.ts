@@ -1,10 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
 } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, count, desc, eq, inArray, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { AppUser } from '../users/user.js';
 import {
@@ -17,6 +18,19 @@ export interface CreateFilingInput {
   title: string;
   category: string;
   expirationDate: string;
+}
+
+export interface FilingVersionInput {
+  expectedVersion: number;
+}
+
+export type UpdateFilingInput = Partial<CreateFilingInput> & FilingVersionInput;
+
+function validateExpectedVersion(input: FilingVersionInput): number {
+  if (!Number.isSafeInteger(input?.expectedVersion) || input.expectedVersion < 1) {
+    throw new BadRequestException('expectedVersion must be a positive integer');
+  }
+  return input.expectedVersion;
 }
 
 function parseExpirationDate(value: unknown): Date {
@@ -110,6 +124,7 @@ export class FilingsService {
       .where(and(
         eq(complianceFilings.id, filingId),
         eq(complianceFilings.tenantId, user.tenantId),
+        eq(complianceFilings.createdBy, user.id)
       ))
       .limit(1);
 
@@ -127,13 +142,15 @@ export class FilingsService {
   async updateFiling(
     user: AppUser,
     filingId: string,
-    input: Partial<CreateFilingInput>,
+    input: UpdateFilingInput,
   ): Promise<ComplianceFiling> {
     if (user.role !== 'SUBMITTER' || !user.tenantId) {
       throw new ForbiddenException(
         'Only submitters with a company can create filings',
       );
     }
+
+    const expectedVersion = validateExpectedVersion(input);
 
     const [filing] = await this.db
       .select()
@@ -142,12 +159,17 @@ export class FilingsService {
         and(
           eq(complianceFilings.id, filingId),
           eq(complianceFilings.tenantId, user.tenantId),
+          eq(complianceFilings.createdBy, user.id),
         ),
       )
       .limit(1);
 
     if (!filing) {
       throw new ForbiddenException('Filing not found or access denied');
+    }
+
+    if (filing.status !== 'DRAFT' || filing.version !== expectedVersion) {
+      throw new ConflictException('This filing has changed. Refresh it before trying again.');
     }
 
     if (
@@ -164,6 +186,7 @@ export class FilingsService {
     const expirationDate = input.expirationDate === undefined
       ? filing.expirationDate
       : parseExpirationDate(input.expirationDate);
+    const tenantId = user.tenantId;
 
     return this.db.transaction(async (tx) => {
 
@@ -173,12 +196,22 @@ export class FilingsService {
           title,
           category,
           expirationDate,
+          version: sql`${complianceFilings.version} + 1`,
+          updatedAt: new Date(),
         })
-        .where(eq(complianceFilings.id, filing.id))
+        .where(
+          and(
+            eq(complianceFilings.id, filing.id),
+            eq(complianceFilings.tenantId, tenantId),
+            eq(complianceFilings.createdBy, user.id),
+            eq(complianceFilings.status, 'DRAFT'),
+            eq(complianceFilings.version, expectedVersion)
+          )
+        )
         .returning();
 
       if (!updated) {
-        throw new Error('Update returned no filing');
+        throw new ConflictException('This filing has changed. Refresh it before trying again.');
       }
 
       await tx.insert(auditLogs).values({
@@ -336,13 +369,16 @@ export class FilingsService {
 
   async submitDraft(
     user: AppUser,
-    filingId: string
+    filingId: string,
+    input: FilingVersionInput,
   ): Promise<ComplianceFiling> {
     if (user.role !== 'SUBMITTER' || !user.tenantId) {
       throw new ForbiddenException(
         'Only submitters with a company can create filings',
       );
     }
+
+    const expectedVersion = validateExpectedVersion(input);
 
     const [draft] = await this.db
       .select()
@@ -351,6 +387,7 @@ export class FilingsService {
         and(
           eq(complianceFilings.id, filingId),
           eq(complianceFilings.tenantId, user.tenantId),
+          eq(complianceFilings.createdBy, user.id),
         ),
       )
       .limit(1);
@@ -359,10 +396,14 @@ export class FilingsService {
       throw new ForbiddenException('Filing not found or access denied');
     }
 
+    if (draft.status !== 'DRAFT' || draft.version !== expectedVersion) {
+      throw new ConflictException('This filing has changed. Refresh it before trying again.');
+    }
+
     const tenantId = user.tenantId;
 
     if (
-      typeof draft?.id !== 'string' ||
+      typeof draft.title !== 'string' ||
       typeof draft?.category !== 'string'
     ) {
       throw new BadRequestException('Title and category are required');
@@ -377,26 +418,24 @@ export class FilingsService {
 
     return this.db.transaction(async (tx) => {
 
-      await tx.insert(auditLogs).values({
-        filingId: draft.id,
-        actorId: user.id,
-        action: 'SUBMIT_DRAFT',
-        previousState: null,
-        newState: 'SUBMITTED',
-      });
-
       const [submitted] = await tx
         .update(complianceFilings)
         .set({
           status: 'SUBMITTED',
-          version: 2,
+          version: sql`${complianceFilings.version} + 1`,
           updatedAt: new Date(),
         })
-        .where(eq(complianceFilings.id, draft.id))
+        .where(and(
+          eq(complianceFilings.id, draft.id),
+          eq(complianceFilings.tenantId, tenantId),
+          eq(complianceFilings.createdBy, user.id),
+          eq(complianceFilings.status, 'DRAFT'),
+          eq(complianceFilings.version, expectedVersion),
+        ))
         .returning();
 
       if (!submitted) {
-        throw new Error('Submission returned no filing');
+        throw new ConflictException('This filing has changed. Refresh it before trying again.');
       }
 
       await tx.insert(auditLogs).values({

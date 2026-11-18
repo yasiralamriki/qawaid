@@ -13,7 +13,7 @@ import {
 import { CurrentUser } from '@nestjs/authentication';
 import type { AppUser } from '../users/user.js';
 import type { ComplianceFiling } from '../database/schema.js';
-import type { CreateFilingInput } from './filings.service.js';
+import type { CreateFilingInput, UpdateFilingInput, FilingVersionInput } from './filings.service.js';
 import { FilingsService } from './filings.service.js';
 
 @Controller('filings')
@@ -33,7 +33,7 @@ export class FilingsController {
   updateFiling(
     @CurrentUser() user: AppUser,
     @Param('id', ParseUUIDPipe) filingId: string,
-    @Body() input: Partial<CreateFilingInput>,
+    @Body() input: UpdateFilingInput,
   ): Promise<ComplianceFiling> {
     return this.filings.updateFiling(user, filingId, input);
   }
@@ -77,7 +77,8 @@ export class FilingsController {
   submitDraft(
     @CurrentUser() user: AppUser,
     @Param('id', ParseUUIDPipe) filingId: string,
+    @Body() input: FilingVersionInput,
   ): Promise<ComplianceFiling> {
-    return this.filings.submitDraft(user, filingId);
+    return this.filings.submitDraft(user, filingId, input);
   }
 }

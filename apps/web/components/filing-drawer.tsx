@@ -72,9 +72,11 @@ export function FilingDrawer({
       const response = await fetch(`/api/filings/${encodeURIComponent(filing.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [editing]: editing === "expirationDate" ? editValue : editValue.trim() }),
+        body: JSON.stringify({ expectedVersion: filing.version, [editing]: editing === "expirationDate" ? editValue : editValue.trim() }),
       });
-      if (!response.ok) throw new Error(response.status === 403
+      if (!response.ok) throw new Error(response.status === 409
+        ? "This filing has changed. Refresh before saving again. Your entered value has been kept."
+        : response.status === 403
         ? "You do not have permission to edit this filing."
         : "Unable to save. Check the value and try again.");
       setEditing(null);

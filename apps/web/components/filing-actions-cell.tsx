@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { TableCell } from "@/components/ui/table";
 
-export function FilingActionsCell({ isDraft, filingId }: { isDraft: boolean; filingId: string }) {
+export function FilingActionsCell({ isDraft, filingId, version }: { isDraft: boolean; filingId: string; version: number }) {
   const router = useRouter();
   const inFlight = useRef(false);
   const [pending, setPending] = useState(false);
@@ -20,9 +20,13 @@ export function FilingActionsCell({ isDraft, filingId }: { isDraft: boolean; fil
     try {
       const response = await fetch(`/api/filings/${encodeURIComponent(filingId)}/submit`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expectedVersion: version }),
       });
       if (!response.ok) {
-        const message = response.status === 401
+        const message = response.status === 409
+          ? "This filing has changed. Refresh it before submitting again."
+          : response.status === 401
           ? "Your session expired. Please sign in again."
           : response.status === 403
             ? "You do not have permission to submit this filing."

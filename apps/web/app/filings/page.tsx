@@ -398,7 +398,11 @@ async function FilingsContent({
                       {filing.assignedReviewerId ?? "Unassigned"}
                     </span>
                   </TableCell>
-                  <FilingActionsCell filingId={filing.id} isDraft={filing.status === "DRAFT" && userData.role === "SUBMITTER"} />
+                  <FilingActionsCell
+                    filingId={filing.id}
+                    version={filing.version}
+                    isDraft={filing.status === "DRAFT" && userData.role === "SUBMITTER"}
+                  />
                 </DrawerTrigger>
                 </FilingDrawer>
               ))

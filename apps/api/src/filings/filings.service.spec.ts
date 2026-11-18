@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import type { AppUser } from '../users/user.js';
@@ -39,7 +39,7 @@ describe('Filing audit history', () => {
     expect(query).toHaveBeenCalledTimes(1);
     expect(query).toHaveBeenCalledWith(expect.objectContaining({
       text: expect.stringContaining('"tenant_id" = $2'),
-    }), [filingId, user.tenantId, 1]);
+    }), [filingId, user.tenantId, user.id, 1]);
   });
 
   it('loads history after checking company access', async () => {
@@ -158,4 +158,68 @@ describe('FilingsService access restrictions', () => {
       expect(query).not.toHaveBeenCalled();
     },
   );
+});
+
+describe('Draft version conflicts', () => {
+  const filing = {
+    id: '33333333-3333-4333-8333-333333333333',
+    tenantId: user.tenantId,
+    createdBy: user.id,
+    title: 'License renewal',
+    category: 'License',
+    expirationDate: new Date('2026-12-31T00:00:00Z'),
+    status: 'DRAFT',
+    version: 4,
+  };
+
+  function draftSetup() {
+    const context = setup();
+    vi.spyOn(context.db, 'select').mockReturnValue({
+      from: () => ({ where: () => ({ limit: async () => [filing] }) }),
+    } as never);
+    vi.spyOn(context.db, 'transaction').mockImplementation(async (callback) =>
+      callback(context.db as never),
+    );
+    return context;
+  }
+
+  it.each(['edit', 'submit'])('rejects invalid versions before querying on %s', async (action) => {
+    const { service, query } = setup();
+    const input = { expectedVersion: 0 };
+    const request = action === 'edit'
+      ? service.updateFiling(user, filing.id, input)
+      : service.submitDraft(user, filing.id, input);
+    await expect(request).rejects.toThrow(BadRequestException);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it.each(['edit', 'submit'])('rejects a stale browser version before writing on %s', async (action) => {
+    const { service, db } = draftSetup();
+    const input = { expectedVersion: 3 };
+    const request = action === 'edit'
+      ? service.updateFiling(user, filing.id, input)
+      : service.submitDraft(user, filing.id, input);
+    await expect(request).rejects.toThrow(ConflictException);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it.each(['edit', 'submit'])('guards the SQL update and records no audit when a concurrent request wins on %s', async (action) => {
+    const { service, query } = draftSetup();
+    const input = { expectedVersion: 4 };
+    const request = action === 'edit'
+      ? service.updateFiling(user, filing.id, input)
+      : service.submitDraft(user, filing.id, input);
+    await expect(request).rejects.toThrow(ConflictException);
+    expect(query).toHaveBeenCalledTimes(1);
+    const [config, parameters] = query.mock.calls[0];
+    const text = (config as unknown as { text: string }).text;
+    const where = text.split(' where ')[1].split(' returning ')[0];
+    for (const column of ['id', 'tenant_id', 'created_by', 'status', 'version']) {
+      expect(where).toContain(`"compliance_filings"."${column}" =`);
+    }
+    expect(text).toContain('"version" + 1');
+    expect(parameters).toEqual(expect.arrayContaining([
+      filing.id, user.tenantId, user.id, 'DRAFT', 4,
+    ]));
+  });
 });
