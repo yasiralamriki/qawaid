@@ -33,6 +33,7 @@ export const complianceFilings = pgTable('compliance_filings', {
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'restrict' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  expirationDate: timestamp('expiration_date', { withTimezone: true }),
 });
 
 export const auditLogs = pgTable('audit_logs', {

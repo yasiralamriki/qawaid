@@ -34,6 +34,7 @@ interface Filing {
     | null;
   createdAt: string | null;
   updatedAt: string | null;
+  expirationDate: string | null;
   assignedReviewerId: string | null;
 }
 
@@ -175,6 +176,7 @@ export default async function Dashboard() {
                 <TableHead className="w-[30%] pl-5 sm:pl-6">Title</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Expiration date</TableHead>
                 <TableHead>Created at</TableHead>
                 <TableHead>Last Updated</TableHead>
                 <TableHead>Reviewer ID</TableHead>
@@ -220,6 +222,9 @@ export default async function Dashboard() {
                       </Badge>
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
+                      {formatDate(filing.expirationDate)}
+                    </TableCell>
+                    <TableCell className="tabular-nums text-muted-foreground">
                       {formatDate(filing.createdAt)}
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
@@ -241,7 +246,7 @@ export default async function Dashboard() {
                 ))
               ) : (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={7} className="h-72 px-6 text-center">
+                  <TableCell colSpan={8} className="h-72 px-6 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 whitespace-normal py-8">
                       <div className="mb-1 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
                         <Inbox

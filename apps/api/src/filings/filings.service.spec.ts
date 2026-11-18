@@ -9,6 +9,7 @@ const user: AppUser = {
   username: 'aram.submitter',
   tenantId: '22222222-2222-4222-8222-222222222222',
   tenantName: 'Aram Organics',
+  tenantIdentifierCr: null,
   role: 'SUBMITTER',
 };
 
@@ -17,9 +18,44 @@ function setup() {
   const query = vi
     .spyOn(pool, 'query')
     .mockResolvedValue({ rows: [] } as never);
-  const service = new FilingsService(drizzle(pool));
-  return { service, query };
+  const db = drizzle(pool);
+  const service = new FilingsService(db);
+  return { service, query, db };
 }
+
+describe('Filing expiration dates', () => {
+  it.each([
+    ['2028-02-29', '2028-02-29T00:00:00.000Z'],
+    [null, null],
+    [undefined, null],
+  ])('stores %s as a UTC date or null', async (input, expected) => {
+    const { service, db } = setup();
+    const values = vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([{ id: 'filing-id' }]),
+    });
+    const tx = { insert: vi.fn().mockReturnValue({ values }) };
+    vi.spyOn(db, 'transaction').mockImplementation(async (callback) => callback(tx as never));
+
+    await service.createDraft(user, {
+      title: 'License renewal', category: 'License', expirationDate: input,
+    });
+
+    expect(values.mock.calls[0][0].expirationDate).toEqual(
+      expected ? new Date(expected) : null,
+    );
+  });
+
+  it.each(['2026-02-30', '2026-13-01', '18/11/2026', '2026-11-18T00:00:00Z', '']) (
+    'rejects invalid date %s before writing', async (expirationDate) => {
+      const { service, db } = setup();
+      const transaction = vi.spyOn(db, 'transaction');
+      await expect(service.createDraft(user, {
+        title: 'License renewal', category: 'License', expirationDate,
+      })).rejects.toThrow(BadRequestException);
+      expect(transaction).not.toHaveBeenCalled();
+    },
+  );
+});
 
 describe('FilingsService access restrictions', () => {
   it('limits submitters by both company and creator in SQL', async () => {

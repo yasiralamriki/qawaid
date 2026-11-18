@@ -34,6 +34,7 @@ export interface FilingDetails {
   createdBy: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  expirationDate: string | null;
 }
 
 function formatTimestamp(value: string | null) {
@@ -105,6 +106,9 @@ export function FilingDrawer({
             {[
               ["Category", filing.category],
               ["Status", filing.status?.replaceAll("_", " ") ?? "—"],
+              ["Expiration date", filing.expirationDate
+                ? new Intl.DateTimeFormat("en-GB", { timeZone: "UTC" }).format(new Date(filing.expirationDate))
+                : "—"],
               ["Version", filing.version],
               ["ID", filing.id],
               ["Tenant ID", filing.tenantId],

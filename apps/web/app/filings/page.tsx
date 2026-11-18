@@ -102,7 +102,7 @@ const statusLabels = {
 };
 
 const formErrors = {
-  "invalid-fields": "Enter a valid title and category.",
+  "invalid-fields": "Enter a valid title, category, and expiration date (if provided).",
   forbidden: "Your account cannot create filings.",
   "save-failed": "Unable to save the filing. Please try again.",
   connection: "Unable to connect to the server. Please try again.",
@@ -117,6 +117,7 @@ type FilingSearchParams = Promise<
 async function createFiling(formData: FormData, submitForReview: boolean) {
   const title = formData.get("title");
   const category = formData.get("category");
+  const expirationDate = formData.get("expirationDate");
 
   if (
     typeof title !== "string" ||
@@ -141,7 +142,11 @@ async function createFiling(formData: FormData, submitForReview: boolean) {
         "Content-Type": "application/json",
         cookie: cookieStore.toString(),
       },
-      body: JSON.stringify({ title: title.trim(), category: category.trim() }),
+      body: JSON.stringify({
+        title: title.trim(),
+        category: category.trim(),
+        expirationDate: expirationDate || null,
+      }),
       cache: "no-store",
     },
   );
@@ -265,9 +270,8 @@ async function FilingsContent({
                     <Label htmlFor="expirationdate-1">Expiration Date</Label>
                     <Input
                       id="expirationdate-1"
-                      name="expirationdate"
+                      name="expirationDate"
                       type="date"
-                      defaultValue="2023-12-31"
                     />
                   </Field>
                 </FieldGroup>
@@ -325,6 +329,7 @@ async function FilingsContent({
               <TableHead className="w-[28%] min-w-56 pl-5 sm:pl-6">Title</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead className="w-32">Expiration date</TableHead>
               <TableHead className="w-28">Created at</TableHead>
               <TableHead className="w-28">Last updated</TableHead>
               <TableHead>Reviewer ID</TableHead>
@@ -371,6 +376,9 @@ async function FilingsContent({
                     </Badge>
                   </TableCell>
                   <TableCell className="tabular-nums text-muted-foreground">
+                    {formatDate(filing.expirationDate)}
+                  </TableCell>
+                  <TableCell className="tabular-nums text-muted-foreground">
                     {formatDate(filing.createdAt)}
                   </TableCell>
                   <TableCell className="tabular-nums text-muted-foreground">
@@ -390,7 +398,7 @@ async function FilingsContent({
               ))
             ) : (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={7} className="h-72 px-6 text-center">
+                <TableCell colSpan={8} className="h-72 px-6 text-center">
                   <div className="mx-auto flex max-w-sm flex-col items-center gap-3 whitespace-normal py-8">
                     <div className="mb-1 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
                       <Inbox

@@ -1,0 +1,1 @@
+ALTER TABLE "compliance_filings" ADD COLUMN "expiration_date" timestamp with time zone;
