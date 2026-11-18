@@ -62,4 +62,12 @@ export class FilingsController {
   ): Promise<ComplianceFiling> {
     return this.filings.createDraftForReview(user, input);
   }
+
+  @Post(':id/submit')
+  submitDraft(
+    @CurrentUser() user: AppUser,
+    @Param('id', ParseUUIDPipe) filingId: string,
+  ): Promise<ComplianceFiling> {
+    return this.filings.submitDraft(user, filingId);
+  }
 }

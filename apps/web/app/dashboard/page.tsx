@@ -1,3 +1,4 @@
+import { FilingActionsCell } from "@/components/filing-actions-cell";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -168,7 +169,7 @@ export default async function Dashboard() {
               Latest 5 records
             </span>
           </div>
-          <Table aria-label={title}>
+          <Table aria-label={title} className="min-w-[960px]">
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent [&>th]:h-11 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground">
                 <TableHead className="w-[30%] pl-5 sm:pl-6">Title</TableHead>
@@ -176,7 +177,8 @@ export default async function Dashboard() {
                 <TableHead>Status</TableHead>
                 <TableHead>Created at</TableHead>
                 <TableHead>Last Updated</TableHead>
-                <TableHead className="pr-5 sm:pr-6">Reviewer ID</TableHead>
+                <TableHead>Reviewer ID</TableHead>
+                <TableHead className="w-28 pr-5 text-right sm:pr-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -223,18 +225,23 @@ export default async function Dashboard() {
                     <TableCell className="tabular-nums text-muted-foreground">
                       {formatDate(filing.updatedAt)}
                     </TableCell>
-                    <TableCell className="pr-5 text-xs text-muted-foreground sm:pr-6">
+                    <TableCell className="text-xs text-muted-foreground">
                       <span
-                        className={filing.assignedReviewerId ? "font-mono" : ""}
+                        className={`block max-w-40 truncate ${filing.assignedReviewerId ? "font-mono" : ""}`}
+                        title={filing.assignedReviewerId ?? undefined}
                       >
                         {filing.assignedReviewerId ?? "Unassigned"}
                       </span>
                     </TableCell>
+                    <FilingActionsCell
+                      filingId={filing.id}
+                      isDraft={filing.status === "DRAFT" && userData?.role === "SUBMITTER"}
+                    />
                   </TableRow>
                 ))
               ) : (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={6} className="h-72 px-6 text-center">
+                  <TableCell colSpan={7} className="h-72 px-6 text-center">
                     <div className="mx-auto flex max-w-sm flex-col items-center gap-3 whitespace-normal py-8">
                       <div className="mb-1 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
                         <Inbox

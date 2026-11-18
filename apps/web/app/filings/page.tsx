@@ -27,7 +27,8 @@ import { Field, FieldGroup } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { DrawerTrigger } from "@/components/ui/drawer";
-import { FilingDrawer } from "@/components/filing-drawer";
+import { FilingActionsCell } from "@/components/filing-actions-cell";
+import { FilingDrawer, type FilingDetails } from "@/components/filing-drawer";
 
 interface CurrentUser {
   id: string;
@@ -38,19 +39,7 @@ interface CurrentUser {
   role: "SUBMITTER" | "AUDITOR" | "SYSTEM_ADMIN";
 }
 
-interface Filing {
-  id: string;
-  title: string;
-  category: string;
-  status:
-    | "DRAFT"
-    | "SUBMITTED"
-    | "UNDER_REVIEW"
-    | "APPROVED"
-    | "REJECTED"
-    | null;
-  createdAt: string | null;
-  updatedAt: string | null;
+interface Filing extends FilingDetails {
   assignedReviewerId: string | null;
 }
 
@@ -330,15 +319,16 @@ async function FilingsContent({
             Latest 50 records
           </span>
         </div>
-        <Table aria-label={title}>
+        <Table aria-label={title} className="min-w-[960px]">
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent [&>th]:h-11 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground">
-              <TableHead className="w-[30%] pl-5 sm:pl-6">Title</TableHead>
+              <TableHead className="w-[28%] min-w-56 pl-5 sm:pl-6">Title</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Created at</TableHead>
-              <TableHead>Last Updated</TableHead>
-              <TableHead className="pr-5 sm:pr-6">Reviewer ID</TableHead>
+              <TableHead className="w-28">Created at</TableHead>
+              <TableHead className="w-28">Last updated</TableHead>
+              <TableHead>Reviewer ID</TableHead>
+              <TableHead className="w-28 pr-5 text-right sm:pr-6">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -346,8 +336,7 @@ async function FilingsContent({
               filingsData.map((filing) => (
                 <FilingDrawer
                   key={filing.id}
-                  filingId={filing.id}
-                  title={<>Audit History</>}
+                  filing={filing}
                 >
                 <DrawerTrigger
                   nativeButton={false}
@@ -387,19 +376,21 @@ async function FilingsContent({
                   <TableCell className="tabular-nums text-muted-foreground">
                     {formatDate(filing.updatedAt)}
                   </TableCell>
-                  <TableCell className="pr-5 text-xs text-muted-foreground sm:pr-6">
+                  <TableCell className="text-xs text-muted-foreground">
                     <span
-                      className={filing.assignedReviewerId ? "font-mono" : ""}
+                      className={`block max-w-40 truncate ${filing.assignedReviewerId ? "font-mono" : ""}`}
+                      title={filing.assignedReviewerId ?? undefined}
                     >
                       {filing.assignedReviewerId ?? "Unassigned"}
                     </span>
                   </TableCell>
+                  <FilingActionsCell filingId={filing.id} isDraft={filing.status === "DRAFT" && userData.role === "SUBMITTER"} />
                 </DrawerTrigger>
                 </FilingDrawer>
               ))
             ) : (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={6} className="h-72 px-6 text-center">
+                <TableCell colSpan={7} className="h-72 px-6 text-center">
                   <div className="mx-auto flex max-w-sm flex-col items-center gap-3 whitespace-normal py-8">
                     <div className="mb-1 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/15">
                       <Inbox

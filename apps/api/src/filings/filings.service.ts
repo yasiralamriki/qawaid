@@ -247,4 +247,81 @@ export class FilingsService {
       return submitted;
     });
   }
+
+  async submitDraft(
+    user: AppUser,
+    filingId: string
+  ): Promise<ComplianceFiling> {
+    if (user.role !== 'SUBMITTER' || !user.tenantId) {
+      throw new ForbiddenException(
+        'Only submitters with a company can create filings',
+      );
+    }
+
+    const [draft] = await this.db
+      .select()
+      .from(complianceFilings)
+      .where(
+        and(
+          eq(complianceFilings.id, filingId),
+          eq(complianceFilings.tenantId, user.tenantId),
+        ),
+      )
+      .limit(1);
+
+    if (!draft) {
+      throw new ForbiddenException('Filing not found or access denied');
+    }
+
+    const tenantId = user.tenantId;
+
+    if (
+      typeof draft?.id !== 'string' ||
+      typeof draft?.category !== 'string'
+    ) {
+      throw new BadRequestException('Title and category are required');
+    }
+
+    const title = draft.title.trim();
+    const category = draft.category.trim();
+
+    if (!title || title.length > 255 || !category || category.length > 50) {
+      throw new BadRequestException('Invalid title or category');
+    }
+
+    return this.db.transaction(async (tx) => {
+
+      await tx.insert(auditLogs).values({
+        filingId: draft.id,
+        actorId: user.id,
+        action: 'SUBMIT_DRAFT',
+        previousState: null,
+        newState: 'SUBMITTED',
+      });
+
+      const [submitted] = await tx
+        .update(complianceFilings)
+        .set({
+          status: 'SUBMITTED',
+          version: 2,
+          updatedAt: new Date(),
+        })
+        .where(eq(complianceFilings.id, draft.id))
+        .returning();
+
+      if (!submitted) {
+        throw new Error('Submission returned no filing');
+      }
+
+      await tx.insert(auditLogs).values({
+        filingId: submitted.id,
+        actorId: user.id,
+        action: 'SUBMIT_FOR_REVIEW',
+        previousState: 'DRAFT',
+        newState: 'SUBMITTED',
+      });
+
+      return submitted;
+    });
+  }
 }

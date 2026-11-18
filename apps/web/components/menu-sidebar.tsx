@@ -8,7 +8,7 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import { Button } from "@/ui/button";
-import { BuildingComplex, FileText, Gavel, LayoutDashboard, Logs, Stamp } from "lucide-react"
+import { BuildingComplex, FileText, Gavel, LayoutDashboard, Stamp } from "lucide-react"
 import Link from "next/link";
 
 interface MenuSidebarProps {
@@ -50,11 +50,6 @@ export function MenuSidebar({ tenantName, tenantRole }: MenuSidebarProps) {
           <Link href='/reviews' className="w-full">
             <Button variant='ghost' className="w-full justify-start">
               <Gavel />Review Queue
-            </Button>
-          </Link>
-          <Link href='/audit-history' className="w-full">
-            <Button variant='ghost' className="w-full justify-start">
-              <Logs  />Audit History
             </Button>
           </Link>
           <Link href='/registry-verifications' className="w-full">

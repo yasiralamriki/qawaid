@@ -24,15 +24,35 @@ interface AuditEvent {
   timestamp: string | null;
 }
 
+export interface FilingDetails {
+  id: string;
+  title: string;
+  category: string;
+  status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | null;
+  version: number;
+  tenantId: string;
+  createdBy: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+function formatTimestamp(value: string | null) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(new Date(value)) + " UTC";
+}
+
 export function FilingDrawer({
-  title,
-  filingId,
+  filing,
   children,
 }: {
-  title: ReactNode;
-  filingId: string;
+  filing: FilingDetails;
   children: ReactNode;
 }) {
+  const filingId = filing.id;
   const [open, setOpen] = useState(false);
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,8 +99,27 @@ export function FilingDrawer({
     <Drawer open={open} onOpenChange={handleOpenChange} swipeDirection="right">
       {children}
       <DrawerContent aria-describedby={undefined}>
-        <DrawerTitle render={<h1 />} className="break-words px-5 py-4 pr-14 text-2xl font-bold tracking-tight">{title}</DrawerTitle>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5" aria-live="polite" aria-busy={loading}>
+        <DrawerTitle render={<h1 />} className="break-words px-5 py-4 pr-14 text-2xl font-bold tracking-tight">{filing.title}</DrawerTitle>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+          <dl className="mb-6 space-y-3">
+            {[
+              ["Category", filing.category],
+              ["Status", filing.status?.replaceAll("_", " ") ?? "—"],
+              ["Version", filing.version],
+              ["ID", filing.id],
+              ["Tenant ID", filing.tenantId],
+              ["Created by", filing.createdBy ?? "—"],
+              ["Created at", formatTimestamp(filing.createdAt)],
+              ["Updated at", formatTimestamp(filing.updatedAt)],
+            ].map(([label, value]) => (
+              <div key={label} className="space-y-1">
+                <dt className="text-xs text-muted-foreground">{label}</dt>
+                <dd className="break-words text-sm">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <h2 className="mb-3 text-lg font-semibold">Audit history</h2>
+          <div aria-live="polite" aria-busy={loading}>
           {loading ? (
             <Trace>
               <TraceLine status="running">
@@ -120,6 +159,7 @@ export function FilingDrawer({
               ))}
             </Trace>
           )}
+          </div>
         </div>
         <DrawerClose
           render={<Button variant="ghost" size="icon-sm" className="absolute top-3 right-3" />}

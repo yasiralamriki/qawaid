@@ -2,6 +2,12 @@
 
 Next.js frontend in `apps/web`, NestJS backend in `apps/api`.
 
+## Filing audit history
+
+Open **Filings** (`/filings`) and select a filing row to open its **Audit History** drawer. The drawer shows that filing's audit events; expand an event to view its previous and new states and actor ID.
+
+Audit history is available through the filings drawer. The standalone `/audit-history` page and its sidebar link have been removed. The drawer continues to load events from `GET /api/filings/:id/audit-history`.
+
 ## Development
 
 Use Node.js 22.12+ (Node.js 24 LTS recommended) and pnpm 10.26.0.
