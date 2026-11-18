@@ -102,7 +102,7 @@ const statusLabels = {
 };
 
 const formErrors = {
-  "invalid-fields": "Enter a valid title, category, and expiration date (if provided).",
+  "invalid-fields": "Enter a valid title, category, and expiration date.",
   forbidden: "Your account cannot create filings.",
   "save-failed": "Unable to save the filing. Please try again.",
   connection: "Unable to connect to the server. Please try again.",
@@ -125,7 +125,11 @@ async function createFiling(formData: FormData, submitForReview: boolean) {
     title.trim().length > 255 ||
     typeof category !== "string" ||
     !category.trim() ||
-    category.trim().length > 50
+    category.trim().length > 50 ||
+    typeof expirationDate !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(expirationDate) ||
+    !Number.isFinite(Date.parse(`${expirationDate}T00:00:00.000Z`)) ||
+    new Date(`${expirationDate}T00:00:00.000Z`).toISOString().slice(0, 10) !== expirationDate
   ) {
     redirect("/filings?formError=invalid-fields");
   }
@@ -145,7 +149,7 @@ async function createFiling(formData: FormData, submitForReview: boolean) {
       body: JSON.stringify({
         title: title.trim(),
         category: category.trim(),
-        expirationDate: expirationDate || null,
+        expirationDate,
       }),
       cache: "no-store",
     },
@@ -272,6 +276,7 @@ async function FilingsContent({
                       id="expirationdate-1"
                       name="expirationDate"
                       type="date"
+                      required
                     />
                   </Field>
                 </FieldGroup>

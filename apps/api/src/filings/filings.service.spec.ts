@@ -26,9 +26,7 @@ function setup() {
 describe('Filing expiration dates', () => {
   it.each([
     ['2028-02-29', '2028-02-29T00:00:00.000Z'],
-    [null, null],
-    [undefined, null],
-  ])('stores %s as a UTC date or null', async (input, expected) => {
+  ])('stores %s as a UTC date', async (input, expected) => {
     const { service, db } = setup();
     const values = vi.fn().mockReturnValue({
       returning: vi.fn().mockResolvedValue([{ id: 'filing-id' }]),
@@ -45,12 +43,13 @@ describe('Filing expiration dates', () => {
     );
   });
 
-  it.each(['2026-02-30', '2026-13-01', '18/11/2026', '2026-11-18T00:00:00Z', '']) (
+  it.each(['2026-02-30', '2026-13-01', '18/11/2026', '2026-11-18T00:00:00Z', '', null, undefined, 20261118, {}, []]) (
     'rejects invalid date %s before writing', async (expirationDate) => {
       const { service, db } = setup();
       const transaction = vi.spyOn(db, 'transaction');
       await expect(service.createDraft(user, {
-        title: 'License renewal', category: 'License', expirationDate,
+        // Simulate untrusted JSON bodies that bypass the TypeScript input type.
+        title: 'License renewal', category: 'License', expirationDate: expirationDate as string,
       })).rejects.toThrow(BadRequestException);
       expect(transaction).not.toHaveBeenCalled();
     },

@@ -16,7 +16,7 @@ import {
 export interface CreateFilingInput {
   title: string;
   category: string;
-  expirationDate?: string | null;
+  expirationDate: string;
 }
 
 @Injectable()
@@ -194,23 +194,19 @@ export class FilingsService {
       throw new BadRequestException('Invalid title or category');
     }
 
-    let expirationDate: Date | null = null;
-    if (input.expirationDate != null) {
-      if (
-        typeof input.expirationDate !== 'string' ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(input.expirationDate)
-      ) {
-        throw new BadRequestException('Expiration date must use YYYY-MM-DD');
-      }
-      expirationDate = new Date(`${input.expirationDate}T00:00:00.000Z`);
-      if (
-        Number.isNaN(expirationDate.getTime()) ||
-        expirationDate.toISOString().slice(0, 10) !== input.expirationDate
-      ) {
-        throw new BadRequestException('Invalid expiration date');
-      }
+    if (
+      typeof input.expirationDate !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(input.expirationDate)
+    ) {
+      throw new BadRequestException('Expiration date is required and must use YYYY-MM-DD');
     }
-
+    const expirationDate = new Date(`${input.expirationDate}T00:00:00.000Z`);
+    if (
+      Number.isNaN(expirationDate.getTime()) ||
+      expirationDate.toISOString().slice(0, 10) !== input.expirationDate
+    ) {
+      throw new BadRequestException('Invalid expiration date');
+    }
     return this.db.transaction(async (tx) => {
       const [draft] = await tx
         .insert(complianceFilings)
