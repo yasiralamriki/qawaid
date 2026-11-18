@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -26,6 +27,15 @@ export class FilingsController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
   ): Promise<ComplianceFiling[]> {
     return this.filings.findForUser(user, page, limit);
+  }
+
+  @Patch(':id')
+  updateFiling(
+    @CurrentUser() user: AppUser,
+    @Param('id', ParseUUIDPipe) filingId: string,
+    @Body() input: Partial<CreateFilingInput>,
+  ): Promise<ComplianceFiling> {
+    return this.filings.updateFiling(user, filingId, input);
   }
 
   @Get(':id/audit-history')

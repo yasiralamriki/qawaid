@@ -23,6 +23,36 @@ function setup() {
   return { service, query, db };
 }
 
+describe('Filing audit history', () => {
+  const filingId = '33333333-3333-4333-8333-333333333333';
+
+  it('rejects users without a company before querying', async () => {
+    const { service, query } = setup();
+    await expect(service.getAuditHistory({ ...user, tenantId: null }, filingId))
+      .rejects.toThrow(ForbiddenException);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('does not load history for a filing outside the company', async () => {
+    const { service, query } = setup();
+    await expect(service.getAuditHistory(user, filingId)).rejects.toThrow(ForbiddenException);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledWith(expect.objectContaining({
+      text: expect.stringContaining('"tenant_id" = $2'),
+    }), [filingId, user.tenantId, 1]);
+  });
+
+  it('loads history after checking company access', async () => {
+    const { service, query } = setup();
+    query.mockResolvedValueOnce({ rows: [[filingId]] } as never);
+    await expect(service.getAuditHistory(user, filingId)).resolves.toEqual([]);
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenLastCalledWith(expect.objectContaining({
+      text: expect.stringContaining('"audit_logs"."filing_id" = $1'),
+    }), [filingId]);
+  });
+});
+
 describe('Filing expiration dates', () => {
   it.each([
     ['2028-02-29', '2028-02-29T00:00:00.000Z'],

@@ -347,6 +347,7 @@ async function FilingsContent({
                 <FilingDrawer
                   key={filing.id}
                   filing={filing}
+                  canEdit={userData.role === "SUBMITTER"}
                 >
                 <DrawerTrigger
                   nativeButton={false}

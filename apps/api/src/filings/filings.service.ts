@@ -19,6 +19,23 @@ export interface CreateFilingInput {
   expirationDate: string;
 }
 
+function parseExpirationDate(value: unknown): Date {
+  if (
+    typeof value !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(value)
+  ) {
+    throw new BadRequestException('Expiration date is required and must use YYYY-MM-DD');
+  }
+  const expirationDate = new Date(`${value}T00:00:00.000Z`);
+  if (
+    Number.isNaN(expirationDate.getTime()) ||
+    expirationDate.toISOString().slice(0, 10) !== value
+  ) {
+    throw new BadRequestException('Invalid expiration date');
+  }
+  return expirationDate;
+}
+
 @Injectable()
 export class FilingsService {
   constructor(@InjectDrizzle() private readonly db: NodePgDatabase) {}
@@ -88,6 +105,37 @@ export class FilingsService {
     }
 
     const [filing] = await this.db
+      .select({ id: complianceFilings.id })
+      .from(complianceFilings)
+      .where(and(
+        eq(complianceFilings.id, filingId),
+        eq(complianceFilings.tenantId, user.tenantId),
+      ))
+      .limit(1);
+
+    if (!filing) {
+      throw new ForbiddenException('Filing not found or access denied');
+    }
+
+    return this.db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.filingId, filingId))
+      .orderBy(desc(auditLogs.timestamp), desc(auditLogs.id));
+  }
+
+  async updateFiling(
+    user: AppUser,
+    filingId: string,
+    input: Partial<CreateFilingInput>,
+  ): Promise<ComplianceFiling> {
+    if (user.role !== 'SUBMITTER' || !user.tenantId) {
+      throw new ForbiddenException(
+        'Only submitters with a company can create filings',
+      );
+    }
+
+    const [filing] = await this.db
       .select()
       .from(complianceFilings)
       .where(
@@ -102,10 +150,45 @@ export class FilingsService {
       throw new ForbiddenException('Filing not found or access denied');
     }
 
-    return this.db
-      .select()
-      .from(auditLogs)
-      .where(eq(auditLogs.filingId, filingId))
+    if (
+      (input.title !== undefined && typeof input.title !== 'string') ||
+      (input.category !== undefined && typeof input.category !== 'string')
+    ) {
+      throw new BadRequestException('Title and category must be strings');
+    }
+    const title = (input.title ?? filing.title).trim();
+    const category = (input.category ?? filing.category).trim();
+    if (!title || title.length > 255 || !category || category.length > 50) {
+      throw new BadRequestException('Invalid title or category');
+    }
+    const expirationDate = input.expirationDate === undefined
+      ? filing.expirationDate
+      : parseExpirationDate(input.expirationDate);
+
+    return this.db.transaction(async (tx) => {
+
+      const [updated] = await tx
+        .update(complianceFilings)
+        .set({
+          title,
+          category,
+          expirationDate,
+        })
+        .where(eq(complianceFilings.id, filing.id))
+        .returning();
+
+      if (!updated) {
+        throw new Error('Update returned no filing');
+      }
+
+      await tx.insert(auditLogs).values({
+        filingId: updated.id,
+        actorId: user.id,
+        action: 'UPDATE_FILING',
+      });
+
+      return updated;
+    });
   }
 
   async getDashboardStats(user: AppUser): Promise<{
@@ -194,19 +277,7 @@ export class FilingsService {
       throw new BadRequestException('Invalid title or category');
     }
 
-    if (
-      typeof input.expirationDate !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(input.expirationDate)
-    ) {
-      throw new BadRequestException('Expiration date is required and must use YYYY-MM-DD');
-    }
-    const expirationDate = new Date(`${input.expirationDate}T00:00:00.000Z`);
-    if (
-      Number.isNaN(expirationDate.getTime()) ||
-      expirationDate.toISOString().slice(0, 10) !== input.expirationDate
-    ) {
-      throw new BadRequestException('Invalid expiration date');
-    }
+    const expirationDate = parseExpirationDate(input.expirationDate);
     return this.db.transaction(async (tx) => {
       const [draft] = await tx
         .insert(complianceFilings)
