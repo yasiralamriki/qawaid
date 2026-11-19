@@ -20,7 +20,7 @@ import {
 interface AuditEvent {
   id: string;
   action: string;
-  actorId: string;
+  actorName: string | null;
   previousState: string | null;
   newState: string | null;
   timestamp: string | null;
@@ -33,7 +33,9 @@ export interface FilingDetails {
   status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | null;
   version: number;
   tenantId: string;
-  createdBy: string | null;
+  tenantName: string | null;
+  createdByName: string | null;
+  assignedReviewerName: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   expirationDate: string | null;
@@ -58,6 +60,7 @@ export function FilingDrawer({
   canEdit?: boolean;
 }) {
   const router = useRouter();
+  const isEditable = canEdit && filing.status === "DRAFT";
   const [editing, setEditing] = useState<"title" | "category" | "expirationDate" | null>(null);
   const [editValue, setValue] = useState("");
   const [saving, setSaving] = useState(false);
@@ -65,7 +68,7 @@ export function FilingDrawer({
 
   async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!editing || saving) return;
+    if (!isEditable || !editing || saving) return;
     setSaving(true);
     setSaveError(null);
     try {
@@ -139,7 +142,7 @@ export function FilingDrawer({
       <DrawerContent aria-describedby={undefined}>
         <DrawerTitle render={<h1 />} className="flex min-w-0 items-start gap-2 px-5 py-4 pr-14 text-2xl leading-tight font-bold tracking-tight">
           <span className="min-w-0 [overflow-wrap:anywhere]">{filing.title}</span>
-          {canEdit && <Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label="Edit title" disabled={saving} onClick={() => {
+          {isEditable && <Button type="button" variant="ghost" size="icon-sm" className="shrink-0" aria-label="Edit title" disabled={saving} onClick={() => {
             setEditing("title");
             setValue(filing.title);
             setSaveError(null);
@@ -148,7 +151,7 @@ export function FilingDrawer({
           </Button>}
         </DrawerTitle>
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
-          {editing === "title" && (
+          {isEditable && editing === "title" && (
             <form onSubmit={save} className="mb-6 space-y-2">
               <label htmlFor={`filing-title-${filing.id}`} className="text-xs text-muted-foreground">Title</label>
               <Input id={`filing-title-${filing.id}`} value={editValue} onChange={(event) => setValue(event.target.value)} maxLength={255} required disabled={saving} autoFocus />
@@ -168,15 +171,16 @@ export function FilingDrawer({
                 : "—"],
               ["Version", filing.version],
               ["ID", filing.id],
-              ["Tenant ID", filing.tenantId],
-              ["Created by", filing.createdBy ?? "—"],
+              ["Tenant", filing.tenantName ?? "Unknown tenant"],
+              ["Reviewer", filing.assignedReviewerName ?? "Unassigned"],
+              ["Created by", filing.createdByName ?? "Unknown user"],
               ["Created at", formatTimestamp(filing.createdAt)],
               ["Updated at", formatTimestamp(filing.updatedAt)],
             ].map(([label, value]) => (
               <div key={label} className="space-y-1">
                 <dt className="text-xs text-muted-foreground">{label}</dt>
                 <dd className="break-words text-sm">
-                  {editing && ((label === "Category" && editing === "category") || (label === "Expiration date" && editing === "expirationDate")) ? (
+                  {isEditable && editing && ((label === "Category" && editing === "category") || (label === "Expiration date" && editing === "expirationDate")) ? (
                     <form onSubmit={save} className="space-y-2">
                       <Input
                         aria-label={String(label)}
@@ -197,7 +201,7 @@ export function FilingDrawer({
                   ) : (
                     <span className="flex items-center gap-1">
                       {value}
-                      {canEdit && (label === "Category" || label === "Expiration date") && (
+                      {isEditable && (label === "Category" || label === "Expiration date") && (
                         <Button type="button" variant="ghost" size="icon-sm" aria-label={`Edit ${String(label).toLowerCase()}`} disabled={saving} onClick={() => {
                           const field = label === "Category" ? "category" : "expirationDate";
                           setEditing(field);
@@ -246,7 +250,7 @@ export function FilingDrawer({
                   )}
                   <TraceCollapsibleContent className="space-y-2 text-sm">
                     <p>{event.previousState ?? "—"} → {event.newState ?? "—"}</p>
-                    <p className="break-all">Actor: {event.actorId}</p>
+                    <p className="break-all">Actor: {event.actorName ?? "Unknown user"}</p>
                   </TraceCollapsibleContent>
                 </TraceCollapsible>
               ))}

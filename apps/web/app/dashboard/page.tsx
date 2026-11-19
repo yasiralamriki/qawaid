@@ -24,7 +24,7 @@ interface CurrentUser {
 }
 
 interface Filing extends FilingDetails {
-  assignedReviewerId: string | null;
+  assignedReviewerName: string | null;
 }
 
 function formatDate(value: string | null): string {
@@ -168,7 +168,7 @@ export default async function Dashboard() {
                 <TableHead>Expiration date</TableHead>
                 <TableHead>Created at</TableHead>
                 <TableHead>Last Updated</TableHead>
-                <TableHead>Reviewer ID</TableHead>
+                <TableHead>Reviewer</TableHead>
                 <TableHead className="w-28 pr-5 text-right sm:pr-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -228,10 +228,10 @@ export default async function Dashboard() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       <span
-                        className={`block max-w-40 truncate ${filing.assignedReviewerId ? "font-mono" : ""}`}
-                        title={filing.assignedReviewerId ?? undefined}
+                        className="block max-w-40 truncate"
+                        title={filing.assignedReviewerName ?? undefined}
                       >
-                        {filing.assignedReviewerId ?? "Unassigned"}
+                        {filing.assignedReviewerName ?? "Unassigned"}
                       </span>
                     </TableCell>
                     <FilingActionsCell

@@ -2,6 +2,18 @@
 
 This is a follow-along tutorial for your current repository, not a change to your application. All paths in code headings below are relative to `apps/api`, unless they start with `apps/web`. The examples target your installed NestJS 12, `@nestjs/authentication` 0.1.5 and Drizzle ORM 0.45.x. Run terminal commands from the repository root unless stated otherwise.
 
+## Current authorization snapshot — November 19, 2026
+
+This document remains a follow-along authentication tutorial. Current review authorization and task status are maintained in [remaining tasks](./remaining-tasks.md); tutorial examples are not a fresh application status report.
+
+- `/reviews` and its sidebar link are restricted to auditors.
+- Start Review, Approve, and Reject require AUDITOR plus the authenticated tenant; their updates check status and expected version.
+- Review actions do not require creator ownership. Submitter draft editing/submission still do.
+- Audit history permits own filings for submitters, permitted company filings for auditors, and global read-only access for system admins.
+- Admin visibility does not grant permission to review or mutate filings.
+
+Outstanding review checks include direct cross-tenant/admin API denial, real concurrent verdicts, and consistent stale-request responses. Rejection still needs a required reason. The review page's active-state filtering is also unfinished.
+
 ## What you will build
 
 - Seeded usernames and hashed passwords in PostgreSQL, with no public registration.

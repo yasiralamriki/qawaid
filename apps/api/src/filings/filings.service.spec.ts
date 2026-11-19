@@ -1,4 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
+import { getTableColumns } from 'drizzle-orm';
+import { auditLogs, complianceFilings } from '../database/schema.js';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import pg from 'pg';
 import type { AppUser } from '../users/user.js';
@@ -77,6 +79,40 @@ describe('Filing audit history', () => {
     query.mockResolvedValueOnce({ rows: [[filingId]] } as never);
     await expect(service.getAuditHistory({ ...user, role: 'SYSTEM_ADMIN', tenantId: null }, filingId)).resolves.toEqual([]);
     expect(query.mock.calls[0][1]).toEqual([filingId, 1]);
+  });
+});
+
+describe('Filing display names', () => {
+  it('returns reviewer and creator names without exposing account credentials', async () => {
+    const { service, query } = setup();
+    const filing = { id: 'filing-id', assignedReviewerId: 'reviewer-id' };
+    query.mockResolvedValueOnce({ rows: [[
+      ...Object.keys(getTableColumns(complianceFilings)).map((key) => filing[key as keyof typeof filing] ?? null),
+      'company.auditor', 'company.submitter',
+    ]] } as never);
+
+    await expect(service.findForUser(user)).resolves.toEqual([
+      expect.objectContaining({ assignedReviewerName: 'company.auditor', createdByName: 'company.submitter' }),
+    ]);
+    const statement = query.mock.calls[0][0] as { text: string };
+    expect(statement.text).toContain('left join "users" "reviewer"');
+    expect(statement.text).toContain('left join "users" "creator"');
+    expect(statement.text).not.toContain('password_hash');
+  });
+
+  it('returns actor names for audit history after checking access', async () => {
+    const { service, query } = setup();
+    query.mockResolvedValueOnce({ rows: [['filing-id']] } as never);
+    query.mockResolvedValueOnce({ rows: [[
+      ...Object.keys(getTableColumns(auditLogs)).map((key) => key === 'actorId' ? 'reviewer-id' : null),
+      'company.auditor',
+    ]] } as never);
+
+    await expect(service.getAuditHistory(user, 'filing-id')).resolves.toEqual([
+      expect.objectContaining({ actorId: 'reviewer-id', actorName: 'company.auditor' }),
+    ]);
+    const statement = query.mock.calls[1][0] as { text: string };
+    expect(statement.text).not.toContain('password_hash');
   });
 });
 

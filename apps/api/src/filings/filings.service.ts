@@ -5,14 +5,20 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { InjectDrizzle } from '@nestjs/drizzle';
-import { and, count, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { AppUser } from '../users/user.js';
 import {
   auditLogs,
+  tenants,
+  users,
   complianceFilings,
   type ComplianceFiling,
 } from '../database/schema.js';
+
+const reviewer = alias(users, 'reviewer');
+const creator = alias(users, 'creator');
 
 export interface CreateFilingInput {
   title: string;
@@ -60,7 +66,7 @@ export class FilingsService {
     user: AppUser,
     page = 1,
     limit = 20,
-  ): Promise<ComplianceFiling[]> {
+  ): Promise<(ComplianceFiling & { assignedReviewerName: string | null; createdByName: string | null; tenantName: string | null })[]> {
     if (
       !Number.isSafeInteger(page) ||
       page < 1 ||
@@ -107,8 +113,16 @@ export class FilingsService {
     }
 
     return this.db
-      .select()
+      .select({
+        ...getTableColumns(complianceFilings),
+        assignedReviewerName: reviewer.username,
+        createdByName: creator.username,
+        tenantName: tenants.name,
+      })
       .from(complianceFilings)
+      .leftJoin(reviewer, eq(complianceFilings.assignedReviewerId, reviewer.id))
+      .leftJoin(creator, eq(complianceFilings.createdBy, creator.id))
+      .leftJoin(tenants, eq(complianceFilings.tenantId, tenants.id))
       .where(accessFilter)
       .orderBy(desc(complianceFilings.createdAt), desc(complianceFilings.id))
       .limit(limit)
@@ -151,8 +165,9 @@ export class FilingsService {
     }
 
     return this.db
-      .select()
+      .select({ ...getTableColumns(auditLogs), actorName: users.username })
       .from(auditLogs)
+      .leftJoin(users, eq(auditLogs.actorId, users.id))
       .where(eq(auditLogs.filingId, filingId))
       .orderBy(desc(auditLogs.timestamp), desc(auditLogs.id));
   }

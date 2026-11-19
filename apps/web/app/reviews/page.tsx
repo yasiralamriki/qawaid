@@ -26,7 +26,7 @@ interface CurrentUser {
 }
 
 interface Filing extends FilingDetails {
-  assignedReviewerId: string | null;
+  assignedReviewerName: string | null;
 }
 
 async function fetchCurrentUser(): Promise<CurrentUser | null> {
@@ -134,7 +134,7 @@ async function ReviewsContent() {
               <TableHead className="w-32">Expiration date</TableHead>
               <TableHead className="w-28">Created at</TableHead>
               <TableHead className="w-28">Last updated</TableHead>
-              <TableHead>Reviewer ID</TableHead>
+              <TableHead>Reviewer</TableHead>
               <TableHead className="w-28 pr-5 text-right sm:pr-6">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -188,10 +188,10 @@ async function ReviewsContent() {
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     <span
-                      className={`block max-w-40 truncate ${filing.assignedReviewerId ? "font-mono" : ""}`}
-                      title={filing.assignedReviewerId ?? undefined}
+                      className="block max-w-40 truncate"
+                      title={filing.assignedReviewerName ?? undefined}
                     >
-                      {filing.assignedReviewerId ?? "Unassigned"}
+                      {filing.assignedReviewerName ?? "Unassigned"}
                     </span>
                   </TableCell>
                   <FilingActionsCell
