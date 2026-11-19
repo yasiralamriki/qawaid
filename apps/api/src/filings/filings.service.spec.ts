@@ -250,3 +250,107 @@ describe('Draft version conflicts', () => {
     ]));
   });
 });
+
+
+describe('Starting a review', () => {
+  const auditor: AppUser = { ...user, id: '44444444-4444-4444-8444-444444444444', role: 'AUDITOR' };
+  const filing = { id: '33333333-3333-4333-8333-333333333333', tenantId: user.tenantId,
+    createdBy: user.id, title: 'License renewal', category: 'License', status: 'SUBMITTED', version: 4 };
+
+  function reviewSetup() {
+    const context = setup();
+    vi.spyOn(context.db, 'select').mockReturnValue({
+      from: () => ({ where: () => ({ limit: async () => [filing] }) }),
+    } as never);
+    vi.spyOn(context.db, 'transaction').mockImplementation(async (callback) => callback(context.db as never));
+    return context;
+  }
+
+  it('allows a different auditor to claim a submitted filing and records the transition', async () => {
+    const { service, query } = reviewSetup();
+    const updated = { ...filing, status: 'UNDER_REVIEW', version: 5, assignedReviewerId: auditor.id };
+    query.mockResolvedValueOnce({ rows: [[filing.id, filing.tenantId, filing.title, filing.category, 'UNDER_REVIEW', 5, auditor.id, null, null, filing.createdBy, null, null, null]] } as never);
+    await expect(service.startReview(auditor, filing.id, { expectedVersion: 4 })).resolves.toMatchObject(updated);
+    const [config, parameters] = query.mock.calls[0];
+    const sql = (config as unknown as { text: string }).text;
+    const where = sql.split(' where ')[1].split(' returning ')[0];
+    expect(where).not.toContain('created_by');
+    for (const column of ['id', 'tenant_id', 'status', 'version']) {
+      expect(where).toContain(`"compliance_filings"."${column}" =`);
+    }
+    expect(sql).toContain('"assigned_reviewer_id" =');
+    expect(parameters).toEqual(expect.arrayContaining([auditor.id, 'UNDER_REVIEW', 'SUBMITTED', 4]));
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[1][1]).toEqual(expect.arrayContaining(['START_REVIEW', 'SUBMITTED', 'UNDER_REVIEW']));
+  });
+
+  it('rejects stale versions before writing', async () => {
+    const { service, db } = reviewSetup();
+    await expect(service.startReview(auditor, filing.id, { expectedVersion: 3 })).rejects.toThrow(ConflictException);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it('records no audit event when another reviewer wins the update', async () => {
+    const { service, query } = reviewSetup();
+    await expect(service.startReview(auditor, filing.id, { expectedVersion: 4 })).rejects.toThrow(ConflictException);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe.each([
+  ['approveFiling', 'APPROVED', 'APPROVE_FILING'],
+  ['rejectFiling', 'REJECTED', 'REJECT_FILING'],
+] as const)('%s decisions', (method, status, action) => {
+  const auditor: AppUser = { ...user, role: 'AUDITOR' };
+  const filing = { id: '33333333-3333-4333-8333-333333333333', tenantId: user.tenantId,
+    title: 'License renewal', category: 'License', status: 'UNDER_REVIEW', version: 4 };
+  function decisionSetup(current = filing) {
+    const context = setup();
+    vi.spyOn(context.db, 'select').mockReturnValue({
+      from: () => ({ where: () => ({ limit: async () => [current] }) }),
+    } as never);
+    vi.spyOn(context.db, 'transaction').mockImplementation(async (callback) => callback(context.db as never));
+    return context;
+  }
+
+  it('transitions an under-review filing and records its audit event', async () => {
+    const { service, query } = decisionSetup();
+    query.mockResolvedValueOnce({ rows: [[filing.id, filing.tenantId, filing.title, filing.category,
+      status, 5, auditor.id, null, null, user.id, null, null, null]] } as never);
+    await expect(service[method](auditor, filing.id, { expectedVersion: 4 })).resolves.toMatchObject({ status, version: 5 });
+    const [config, parameters] = query.mock.calls[0];
+    const sql = (config as unknown as { text: string }).text;
+    const where = sql.split(' where ')[1].split(' returning ')[0];
+    for (const column of ['id', 'tenant_id', 'status', 'version']) {
+      expect(where).toContain(`"compliance_filings"."${column}" =`);
+    }
+    expect(parameters).toEqual(expect.arrayContaining([filing.id, auditor.tenantId, status, 'UNDER_REVIEW', 4]));
+    expect(query).toHaveBeenCalledTimes(2);
+    expect(query.mock.calls[1][1]).toEqual(expect.arrayContaining([action, 'UNDER_REVIEW', status]));
+  });
+
+  it('rejects stale versions without writing', async () => {
+    const { service, db } = decisionSetup();
+    await expect(service[method](auditor, filing.id, { expectedVersion: 3 })).rejects.toThrow(ConflictException);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects a decision on a completed filing', async () => {
+    const { service, db } = decisionSetup({ ...filing, status: 'APPROVED' });
+    await expect(service[method](auditor, filing.id, { expectedVersion: 4 })).rejects.toThrow(ConflictException);
+    expect(db.transaction).not.toHaveBeenCalled();
+  });
+
+  it('records no audit event when a concurrent decision wins', async () => {
+    const { service, query } = decisionSetup();
+    await expect(service[method](auditor, filing.id, { expectedVersion: 4 })).rejects.toThrow(ConflictException);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('denies submitters before querying', async () => {
+    const { service, query } = setup();
+    await expect(service[method](user, filing.id, { expectedVersion: 4 })).rejects.toThrow(ForbiddenException);
+    expect(query).not.toHaveBeenCalled();
+  });
+});

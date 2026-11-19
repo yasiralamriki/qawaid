@@ -27,18 +27,20 @@ export interface FilingVersionInput {
 export type UpdateFilingInput = Partial<CreateFilingInput> & FilingVersionInput;
 
 function validateExpectedVersion(input: FilingVersionInput): number {
-  if (!Number.isSafeInteger(input?.expectedVersion) || input.expectedVersion < 1) {
+  if (
+    !Number.isSafeInteger(input?.expectedVersion) ||
+    input.expectedVersion < 1
+  ) {
     throw new BadRequestException('expectedVersion must be a positive integer');
   }
   return input.expectedVersion;
 }
 
 function parseExpirationDate(value: unknown): Date {
-  if (
-    typeof value !== 'string' ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(value)
-  ) {
-    throw new BadRequestException('Expiration date is required and must use YYYY-MM-DD');
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new BadRequestException(
+      'Expiration date is required and must use YYYY-MM-DD',
+    );
   }
   const expirationDate = new Date(`${value}T00:00:00.000Z`);
   if (
@@ -128,7 +130,10 @@ export class FilingsService {
       accessFilter = and(
         eq(complianceFilings.tenantId, user.tenantId!),
         inArray(complianceFilings.status, [
-          'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED',
+          'SUBMITTED',
+          'UNDER_REVIEW',
+          'APPROVED',
+          'REJECTED',
         ]),
       );
     } else if (user.role !== 'SYSTEM_ADMIN') {
@@ -138,10 +143,7 @@ export class FilingsService {
     const [filing] = await this.db
       .select({ id: complianceFilings.id })
       .from(complianceFilings)
-      .where(and(
-        eq(complianceFilings.id, filingId),
-        accessFilter,
-      ))
+      .where(and(eq(complianceFilings.id, filingId), accessFilter))
       .limit(1);
 
     if (!filing) {
@@ -185,7 +187,9 @@ export class FilingsService {
     }
 
     if (filing.status !== 'DRAFT' || filing.version !== expectedVersion) {
-      throw new ConflictException('This filing has changed. Refresh it before trying again.');
+      throw new ConflictException(
+        'This filing has changed. Refresh it before trying again.',
+      );
     }
 
     if (
@@ -199,13 +203,13 @@ export class FilingsService {
     if (!title || title.length > 255 || !category || category.length > 50) {
       throw new BadRequestException('Invalid title or category');
     }
-    const expirationDate = input.expirationDate === undefined
-      ? filing.expirationDate
-      : parseExpirationDate(input.expirationDate);
+    const expirationDate =
+      input.expirationDate === undefined
+        ? filing.expirationDate
+        : parseExpirationDate(input.expirationDate);
     const tenantId = user.tenantId;
 
     return this.db.transaction(async (tx) => {
-
       const [updated] = await tx
         .update(complianceFilings)
         .set({
@@ -221,13 +225,15 @@ export class FilingsService {
             eq(complianceFilings.tenantId, tenantId),
             eq(complianceFilings.createdBy, user.id),
             eq(complianceFilings.status, 'DRAFT'),
-            eq(complianceFilings.version, expectedVersion)
-          )
+            eq(complianceFilings.version, expectedVersion),
+          ),
         )
         .returning();
 
       if (!updated) {
-        throw new ConflictException('This filing has changed. Refresh it before trying again.');
+        throw new ConflictException(
+          'This filing has changed. Refresh it before trying again.',
+        );
       }
 
       await tx.insert(auditLogs).values({
@@ -275,7 +281,7 @@ export class FilingsService {
         .from(complianceFilings)
         .where(and(tenantFilter, eq(complianceFilings.status, 'REJECTED'))),
     ]);
-    
+
     return {
       totalFilings: Number(total[0]?.count ?? 0),
       draftFilings: Number(draft[0]?.count ?? 0),
@@ -413,7 +419,9 @@ export class FilingsService {
     }
 
     if (draft.status !== 'DRAFT' || draft.version !== expectedVersion) {
-      throw new ConflictException('This filing has changed. Refresh it before trying again.');
+      throw new ConflictException(
+        'This filing has changed. Refresh it before trying again.',
+      );
     }
 
     const tenantId = user.tenantId;
@@ -433,7 +441,6 @@ export class FilingsService {
     }
 
     return this.db.transaction(async (tx) => {
-
       const [submitted] = await tx
         .update(complianceFilings)
         .set({
@@ -441,17 +448,21 @@ export class FilingsService {
           version: sql`${complianceFilings.version} + 1`,
           updatedAt: new Date(),
         })
-        .where(and(
-          eq(complianceFilings.id, draft.id),
-          eq(complianceFilings.tenantId, tenantId),
-          eq(complianceFilings.createdBy, user.id),
-          eq(complianceFilings.status, 'DRAFT'),
-          eq(complianceFilings.version, expectedVersion),
-        ))
+        .where(
+          and(
+            eq(complianceFilings.id, draft.id),
+            eq(complianceFilings.tenantId, tenantId),
+            eq(complianceFilings.createdBy, user.id),
+            eq(complianceFilings.status, 'DRAFT'),
+            eq(complianceFilings.version, expectedVersion),
+          ),
+        )
         .returning();
 
       if (!submitted) {
-        throw new ConflictException('This filing has changed. Refresh it before trying again.');
+        throw new ConflictException(
+          'This filing has changed. Refresh it before trying again.',
+        );
       }
 
       await tx.insert(auditLogs).values({
@@ -463,6 +474,270 @@ export class FilingsService {
       });
 
       return submitted;
+    });
+  }
+
+  async startReview(
+    user: AppUser,
+    filingId: string,
+    input: FilingVersionInput,
+  ): Promise<ComplianceFiling> {
+    if (user.role !== 'AUDITOR' || !user.tenantId) {
+      throw new ForbiddenException(
+        'Only auditors with a company can start review for filings',
+      );
+    }
+
+    const expectedVersion = validateExpectedVersion(input);
+
+    const [filing] = await this.db
+      .select()
+      .from(complianceFilings)
+      .where(
+        and(
+          eq(complianceFilings.id, filingId),
+          eq(complianceFilings.tenantId, user.tenantId),
+          eq(complianceFilings.status, 'SUBMITTED'),
+        ),
+      )
+      .limit(1);
+
+    if (!filing) {
+      throw new ForbiddenException('Filing not found or access denied');
+    }
+
+    if (filing.status !== 'SUBMITTED' || filing.version !== expectedVersion) {
+      throw new ConflictException(
+        'This filing has changed. Refresh it before trying again.',
+      );
+    }
+
+    const tenantId = user.tenantId;
+
+    if (
+      typeof filing.title !== 'string' ||
+      typeof filing?.category !== 'string'
+    ) {
+      throw new BadRequestException('Title and category are required');
+    }
+
+    const title = filing.title.trim();
+    const category = filing.category.trim();
+
+    if (!title || title.length > 255 || !category || category.length > 50) {
+      throw new BadRequestException('Invalid title or category');
+    }
+
+    return this.db.transaction(async (tx) => {
+      const [underReview] = await tx
+        .update(complianceFilings)
+        .set({
+          status: 'UNDER_REVIEW',
+          assignedReviewerId: user.id,
+          version: sql`${complianceFilings.version} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(complianceFilings.id, filing.id),
+            eq(complianceFilings.tenantId, tenantId),
+            eq(complianceFilings.status, 'SUBMITTED'),
+            eq(complianceFilings.version, expectedVersion),
+          ),
+        )
+        .returning();
+
+      if (!underReview) {
+        throw new ConflictException(
+          'This filing has changed. Refresh it before trying again.',
+        );
+      }
+
+      await tx.insert(auditLogs).values({
+        filingId: underReview.id,
+        actorId: user.id,
+        action: 'START_REVIEW',
+        previousState: 'SUBMITTED',
+        newState: 'UNDER_REVIEW',
+      });
+
+      return underReview;
+    });
+  }
+
+  async approveFiling(
+    user: AppUser,
+    filingId: string,
+    input: FilingVersionInput,
+  ): Promise<ComplianceFiling> {
+    if (user.role !== 'AUDITOR' || !user.tenantId) {
+      throw new ForbiddenException(
+        'Only auditors with a company can start review for filings',
+      );
+    }
+
+    const expectedVersion = validateExpectedVersion(input);
+
+    const [filing] = await this.db
+      .select()
+      .from(complianceFilings)
+      .where(
+        and(
+          eq(complianceFilings.id, filingId),
+          eq(complianceFilings.tenantId, user.tenantId),
+          eq(complianceFilings.status, 'UNDER_REVIEW'),
+        ),
+      )
+      .limit(1);
+
+    if (!filing) {
+      throw new ForbiddenException('Filing not found or access denied');
+    }
+
+    if (filing.status !== 'UNDER_REVIEW' || filing.version !== expectedVersion) {
+      throw new ConflictException(
+        'This filing has changed. Refresh it before trying again.',
+      );
+    }
+
+    const tenantId = user.tenantId;
+
+    if (
+      typeof filing.title !== 'string' ||
+      typeof filing?.category !== 'string'
+    ) {
+      throw new BadRequestException('Title and category are required');
+    }
+
+    const title = filing.title.trim();
+    const category = filing.category.trim();
+
+    if (!title || title.length > 255 || !category || category.length > 50) {
+      throw new BadRequestException('Invalid title or category');
+    }
+
+    return this.db.transaction(async (tx) => {
+      const [approved] = await tx
+        .update(complianceFilings)
+        .set({
+          status: 'APPROVED',
+          assignedReviewerId: user.id,
+          version: sql`${complianceFilings.version} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(complianceFilings.id, filing.id),
+            eq(complianceFilings.tenantId, tenantId),
+            eq(complianceFilings.status, 'UNDER_REVIEW'),
+            eq(complianceFilings.version, expectedVersion),
+          ),
+        )
+        .returning();
+
+      if (!approved) {
+        throw new ConflictException(
+          'This filing has changed. Refresh it before trying again.',
+        );
+      }
+
+      await tx.insert(auditLogs).values({
+        filingId: approved.id,
+        actorId: user.id,
+        action: 'APPROVE_FILING',
+        previousState: 'UNDER_REVIEW',
+        newState: 'APPROVED',
+      });
+
+      return approved;
+    });
+  }
+
+  async rejectFiling(
+    user: AppUser,
+    filingId: string,
+    input: FilingVersionInput,
+  ): Promise<ComplianceFiling> {
+    if (user.role !== 'AUDITOR' || !user.tenantId) {
+      throw new ForbiddenException(
+        'Only auditors with a company can start review for filings',
+      );
+    }
+
+    const expectedVersion = validateExpectedVersion(input);
+
+    const [filing] = await this.db
+      .select()
+      .from(complianceFilings)
+      .where(
+        and(
+          eq(complianceFilings.id, filingId),
+          eq(complianceFilings.tenantId, user.tenantId),
+          eq(complianceFilings.status, 'UNDER_REVIEW'),
+        ),
+      )
+      .limit(1);
+
+    if (!filing) {
+      throw new ForbiddenException('Filing not found or access denied');
+    }
+
+    if (filing.status !== 'UNDER_REVIEW' || filing.version !== expectedVersion) {
+      throw new ConflictException(
+        'This filing has changed. Refresh it before trying again.',
+      );
+    }
+
+    const tenantId = user.tenantId;
+
+    if (
+      typeof filing.title !== 'string' ||
+      typeof filing?.category !== 'string'
+    ) {
+      throw new BadRequestException('Title and category are required');
+    }
+
+    const title = filing.title.trim();
+    const category = filing.category.trim();
+
+    if (!title || title.length > 255 || !category || category.length > 50) {
+      throw new BadRequestException('Invalid title or category');
+    }
+
+    return this.db.transaction(async (tx) => {
+      const [rejected] = await tx
+        .update(complianceFilings)
+        .set({
+          status: 'REJECTED',
+          assignedReviewerId: user.id,
+          version: sql`${complianceFilings.version} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(complianceFilings.id, filing.id),
+            eq(complianceFilings.tenantId, tenantId),
+            eq(complianceFilings.status, 'UNDER_REVIEW'),
+            eq(complianceFilings.version, expectedVersion),
+          ),
+        )
+        .returning();
+
+      if (!rejected) {
+        throw new ConflictException(
+          'This filing has changed. Refresh it before trying again.',
+        );
+      }
+
+      await tx.insert(auditLogs).values({
+        filingId: rejected.id,
+        actorId: user.id,
+        action: 'REJECT_FILING',
+        previousState: 'UNDER_REVIEW',
+        newState: 'REJECTED',
+      });
+
+      return rejected;
     });
   }
 }

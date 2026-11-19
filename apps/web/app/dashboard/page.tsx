@@ -235,9 +235,11 @@ export default async function Dashboard() {
                       </span>
                     </TableCell>
                     <FilingActionsCell
-                      filingId={filing.id}
+                      status={filing.status}
+                    filingId={filing.id}
                       version={filing.version}
                       isDraft={filing.status === "DRAFT" && userData?.role === "SUBMITTER"}
+                      isAuditor={userData?.role === "AUDITOR" && filing.status === "SUBMITTED"}
                     />
                   </DrawerTrigger>
                   </FilingDrawer>

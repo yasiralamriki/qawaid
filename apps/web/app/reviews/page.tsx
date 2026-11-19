@@ -1,16 +1,7 @@
 import { Suspense } from "react";
-import { FileText, Inbox, Plus } from "lucide-react";
+import { FileText, Inbox } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -20,12 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cookies } from "next/headers";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Field, FieldGroup } from "@/components/ui/field";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { DrawerTrigger } from "@/components/ui/drawer";
 import { FilingActionsCell } from "@/components/filing-actions-cell";
 import { FilingDrawer, type FilingDetails } from "@/components/filing-drawer";
@@ -62,7 +48,7 @@ async function fetchCurrentUser(): Promise<CurrentUser | null> {
 async function fetchCurrentFilings(): Promise<Filing[]> {
   const cookieStore = await cookies();
   const response = await fetch(
-    new URL("/api/filings", process.env.API_URL ?? "http://localhost:4000"),
+    new URL("/api/filings?limit=50", process.env.API_URL ?? "http://localhost:4000"),
     {
       headers: { cookie: cookieStore.toString() },
       cache: "no-store",
@@ -101,41 +87,13 @@ const statusLabels = {
   REJECTED: "Rejected",
 };
 
-const formErrors = {
-  "invalid-fields": "Enter a valid title, category, and expiration date.",
-  forbidden: "Your account cannot create filings.",
-  "save-failed": "Unable to save the filing. Please try again.",
-  connection: "Unable to connect to the server. Please try again.",
-};
-
-type FormErrorCode = keyof typeof formErrors;
-
-type FilingSearchParams = Promise<
-  Record<string, string | string[] | undefined>
->;
-
-async function ReviewsContent({
-  searchParams,
-}: {
-  searchParams: FilingSearchParams;
-}) {
-  const params = await searchParams;
-  const rawError = params.formError;
-
-  const errorCode =
-    typeof rawError === "string" &&
-    Object.prototype.hasOwnProperty.call(formErrors, rawError)
-      ? (rawError as FormErrorCode)
-      : undefined;
-
-  const errorMessage = errorCode ? formErrors[errorCode] : undefined;
-
+async function ReviewsContent() {
   const userData = await fetchCurrentUser();
   if (!userData) redirect("/login");
   if (userData.role !== "AUDITOR") redirect("/dashboard");
 
   const filingsData = await fetchCurrentFilings();
-  const title = 'Company Reviews'
+  const title = "Company Reviews";
 
   return (
     <div className="flex w-full min-w-0 flex-1 flex-col gap-7 bg-muted/20 p-4 sm:p-6 lg:p-8">
@@ -186,7 +144,6 @@ async function ReviewsContent({
                 <FilingDrawer
                   key={filing.id}
                   filing={filing}
-                  canEdit={userData.role === "SUBMITTER"}
                 >
                 <DrawerTrigger
                   nativeButton={false}
@@ -238,9 +195,11 @@ async function ReviewsContent({
                     </span>
                   </TableCell>
                   <FilingActionsCell
+                    status={filing.status}
                     filingId={filing.id}
                     version={filing.version}
-                    isDraft={filing.status === "SUBMITTED" && userData.role === "AUDITOR"}
+                    isDraft={false}
+                    isAuditor={userData.role === "AUDITOR"}
                   />
                 </DrawerTrigger>
                 </FilingDrawer>
@@ -279,11 +238,7 @@ async function ReviewsContent({
   );
 }
 
-export default function Reviews({
-  searchParams,
-}: {
-  searchParams: FilingSearchParams;
-}) {
+export default function Reviews() {
   return (
     <Suspense
       fallback={
@@ -292,7 +247,7 @@ export default function Reviews({
         </p>
       }
     >
-      <ReviewsContent searchParams={searchParams} />
+      <ReviewsContent />
     </Suspense>
   );
 }

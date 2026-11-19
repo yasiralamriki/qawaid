@@ -399,9 +399,11 @@ async function FilingsContent({
                     </span>
                   </TableCell>
                   <FilingActionsCell
+                    status={filing.status}
                     filingId={filing.id}
                     version={filing.version}
                     isDraft={filing.status === "DRAFT" && userData.role === "SUBMITTER"}
+                    isAuditor={userData.role === "AUDITOR"}
                   />
                 </DrawerTrigger>
                 </FilingDrawer>

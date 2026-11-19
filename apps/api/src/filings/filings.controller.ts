@@ -81,4 +81,31 @@ export class FilingsController {
   ): Promise<ComplianceFiling> {
     return this.filings.submitDraft(user, filingId, input);
   }
+
+  @Post(':id/start-review')
+  startReview(
+    @CurrentUser() user: AppUser,
+    @Param('id', ParseUUIDPipe) filingId: string,
+    @Body() input: FilingVersionInput,
+  ): Promise<ComplianceFiling> {
+    return this.filings.startReview(user, filingId, input);
+  }
+
+  @Post(':id/approve')
+  approveFiling(
+    @CurrentUser() user: AppUser,
+    @Param('id', ParseUUIDPipe) filingId: string,
+    @Body() input: FilingVersionInput,
+  ): Promise<ComplianceFiling> {
+    return this.filings.approveFiling(user, filingId, input);
+  }
+
+  @Post(':id/reject')
+  rejectFiling(
+    @CurrentUser() user: AppUser,
+    @Param('id', ParseUUIDPipe) filingId: string,
+    @Body() input: FilingVersionInput,
+  ): Promise<ComplianceFiling> {
+    return this.filings.rejectFiling(user, filingId, input);
+  }
 }
