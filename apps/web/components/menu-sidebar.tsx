@@ -17,7 +17,6 @@ interface MenuSidebarProps {
 }
 
 export function MenuSidebar({ tenantName, tenantRole }: MenuSidebarProps) {
-
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border px-4 py-5">
@@ -47,11 +46,13 @@ export function MenuSidebar({ tenantName, tenantRole }: MenuSidebarProps) {
               <FileText />Filings
             </Button>
           </Link>
-          <Link href='/reviews' className="w-full">
-            <Button variant='ghost' className="w-full justify-start">
-              <Gavel />Review Queue
-            </Button>
-          </Link>
+          {tenantRole === "AUDITOR" && (
+            <Link href='/reviews' className="w-full">
+              <Button variant='ghost' className="w-full justify-start">
+                <Gavel />Review Queue
+              </Button>
+            </Link>
+          )}
           <Link href='/registry-verifications' className="w-full">
             <Button variant='ghost' className="w-full justify-start">
               <Stamp />Registry Verifications
