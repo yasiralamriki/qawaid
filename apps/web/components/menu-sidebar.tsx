@@ -8,15 +8,37 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import { Button } from "@/ui/button";
-import { BuildingComplex, FileText, Gavel, LayoutDashboard, Stamp } from "lucide-react"
+import { BuildingComplex, FileText, Gavel, LayoutDashboard, LogOut, Stamp, UserRound } from "lucide-react"
 import Link from "next/link";
+import { useState } from "react";
 
 interface MenuSidebarProps {
   tenantName: string;
   tenantRole: string;
+  username: string;
 }
 
-export function MenuSidebar({ tenantName, tenantRole }: MenuSidebarProps) {
+export function MenuSidebar({ tenantName, tenantRole, username }: MenuSidebarProps) {
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState("");
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    setSignOutError("");
+    try {
+      const response = await fetch("/api/auth/sign-out", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!response.ok) throw new Error("Sign out failed");
+      // Reload the document to discard the authenticated client router cache.
+      window.location.replace("/login");
+    } catch {
+      setSignOutError("Unable to sign out. Please try again.");
+      setSigningOut(false);
+    }
+  }
+
   return (
     <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border px-4 py-5">
@@ -60,7 +82,22 @@ export function MenuSidebar({ tenantName, tenantRole }: MenuSidebarProps) {
           </Link>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter />
+      <SidebarFooter className="gap-3 border-t border-sidebar-border p-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
+            <UserRound className="size-4" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium" title={username}>{username}</p>
+            <p className="truncate text-xs text-muted-foreground">{tenantRole.replaceAll("_", " ")}</p>
+          </div>
+        </div>
+        {signOutError && <p role="alert" className="text-xs text-destructive">{signOutError}</p>}
+        <Button type="button" variant="outline" className="w-full justify-start" onClick={handleSignOut} disabled={signingOut}>
+          <LogOut aria-hidden="true" />
+          {signingOut ? "Signing out…" : "Sign out"}
+        </Button>
+      </SidebarFooter>
     </Sidebar>
   )
 }

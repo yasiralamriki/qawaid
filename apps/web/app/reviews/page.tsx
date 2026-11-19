@@ -135,7 +135,7 @@ async function ReviewsContent({
   if (userData.role !== "AUDITOR") redirect("/dashboard");
 
   const filingsData = await fetchCurrentFilings();
-  const title = 'COmpany Reviews'
+  const title = 'Company Reviews'
 
   return (
     <div className="flex w-full min-w-0 flex-1 flex-col gap-7 bg-muted/20 p-4 sm:p-6 lg:p-8">

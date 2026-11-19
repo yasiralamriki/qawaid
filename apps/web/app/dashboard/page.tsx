@@ -1,4 +1,6 @@
 import { FilingActionsCell } from "@/components/filing-actions-cell";
+import { FilingDrawer, type FilingDetails } from "@/components/filing-drawer";
+import { DrawerTrigger } from "@/components/ui/drawer";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -21,21 +23,7 @@ interface CurrentUser {
   role: "SUBMITTER" | "AUDITOR" | "SYSTEM_ADMIN";
 }
 
-interface Filing {
-  id: string;
-  version: number;
-  title: string;
-  category: string;
-  status:
-    | "DRAFT"
-    | "SUBMITTED"
-    | "UNDER_REVIEW"
-    | "APPROVED"
-    | "REJECTED"
-    | null;
-  createdAt: string | null;
-  updatedAt: string | null;
-  expirationDate: string | null;
+interface Filing extends FilingDetails {
   assignedReviewerId: string | null;
 }
 
@@ -187,9 +175,16 @@ export default async function Dashboard() {
             <TableBody>
               {filingsData.length > 0 ? (
                 filingsData.map((filing) => (
-                  <TableRow
+                  <FilingDrawer
                     key={filing.id}
-                    className="transition-colors hover:bg-primary/[0.03] [&>td]:py-4"
+                    filing={filing}
+                    canEdit={userData?.role === "SUBMITTER"}
+                  >
+                  <DrawerTrigger
+                    nativeButton={false}
+                    render={<TableRow />}
+                    aria-label={`View filing: ${filing.title}`}
+                    className="cursor-pointer transition-colors hover:bg-primary/[0.03] focus-visible:outline-2 focus-visible:outline-ring [&>td]:py-4"
                   >
                     <TableCell className="pl-5 font-medium sm:pl-6">
                       <div className="flex items-center gap-3">
@@ -244,7 +239,8 @@ export default async function Dashboard() {
                       version={filing.version}
                       isDraft={filing.status === "DRAFT" && userData?.role === "SUBMITTER"}
                     />
-                  </TableRow>
+                  </DrawerTrigger>
+                  </FilingDrawer>
                 ))
               ) : (
                 <TableRow className="hover:bg-transparent">

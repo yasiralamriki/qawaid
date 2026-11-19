@@ -51,6 +51,33 @@ describe('Filing audit history', () => {
       text: expect.stringContaining('"audit_logs"."filing_id" = $1'),
     }), [filingId]);
   });
+
+  it('allows auditors to read company history without requiring ownership', async () => {
+    const { service, query } = setup();
+    query.mockResolvedValueOnce({ rows: [[filingId]] } as never);
+    await expect(service.getAuditHistory({ ...user, role: 'AUDITOR' }, filingId)).resolves.toEqual([]);
+    const [statement, parameters] = query.mock.calls[0];
+    expect(statement).toEqual(expect.objectContaining({
+      text: expect.stringContaining('"tenant_id" = $2'),
+    }));
+    expect(statement).toEqual(expect.objectContaining({
+      text: expect.not.stringContaining('"created_by"'),
+    }));
+    expect(parameters).toEqual([filingId, user.tenantId, 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 1]);
+  });
+
+  it('denies auditors access to drafts and other companies before loading events', async () => {
+    const { service, query } = setup();
+    await expect(service.getAuditHistory({ ...user, role: 'AUDITOR' }, filingId)).rejects.toThrow(ForbiddenException);
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows administrators to read history without a company', async () => {
+    const { service, query } = setup();
+    query.mockResolvedValueOnce({ rows: [[filingId]] } as never);
+    await expect(service.getAuditHistory({ ...user, role: 'SYSTEM_ADMIN', tenantId: null }, filingId)).resolves.toEqual([]);
+    expect(query.mock.calls[0][1]).toEqual([filingId, 1]);
+  });
 });
 
 describe('Filing expiration dates', () => {

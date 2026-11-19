@@ -58,7 +58,7 @@ async function AccountLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <MenuSidebar tenantName={userData.tenantName ?? 'Unknown'} tenantRole={userData.role} />
+      <MenuSidebar tenantName={userData.tenantName ?? 'Unknown'} tenantRole={userData.role} username={userData.username} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-12 shrink-0 items-center border-b px-4">
           <SidebarTrigger />

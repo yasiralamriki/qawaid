@@ -114,8 +114,25 @@ export class FilingsService {
   }
 
   async getAuditHistory(user: AppUser, filingId: string) {
-    if (!user.tenantId) {
+    if (user.role !== 'SYSTEM_ADMIN' && !user.tenantId) {
       throw new ForbiddenException('A company is required');
+    }
+
+    let accessFilter: SQL | undefined;
+    if (user.role === 'SUBMITTER') {
+      accessFilter = and(
+        eq(complianceFilings.tenantId, user.tenantId!),
+        eq(complianceFilings.createdBy, user.id),
+      );
+    } else if (user.role === 'AUDITOR') {
+      accessFilter = and(
+        eq(complianceFilings.tenantId, user.tenantId!),
+        inArray(complianceFilings.status, [
+          'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED',
+        ]),
+      );
+    } else if (user.role !== 'SYSTEM_ADMIN') {
+      throw new ForbiddenException('Unsupported role');
     }
 
     const [filing] = await this.db
@@ -123,8 +140,7 @@ export class FilingsService {
       .from(complianceFilings)
       .where(and(
         eq(complianceFilings.id, filingId),
-        eq(complianceFilings.tenantId, user.tenantId),
-        eq(complianceFilings.createdBy, user.id)
+        accessFilter,
       ))
       .limit(1);
 
