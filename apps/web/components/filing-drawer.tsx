@@ -31,6 +31,7 @@ export interface FilingDetails {
   title: string;
   category: string;
   status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | null;
+  rejectionReason: string | null;
   version: number;
   tenantId: string;
   tenantName: string | null;
@@ -169,6 +170,7 @@ export function FilingDrawer({
               ["Expiration date", filing.expirationDate
                 ? new Intl.DateTimeFormat("en-GB", { timeZone: "UTC" }).format(new Date(filing.expirationDate))
                 : "—"],
+              ...(filing.status === "REJECTED" ? [["Rejection reason", filing.rejectionReason ?? "—"]] : []),
               ["Version", filing.version],
               ["ID", filing.id],
               ["Tenant", filing.tenantName ?? "Unknown tenant"],

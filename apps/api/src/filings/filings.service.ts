@@ -30,6 +30,10 @@ export interface FilingVersionInput {
   expectedVersion: number;
 }
 
+export interface RejectFilingInput extends FilingVersionInput {
+  rejectionReason: string;
+}
+
 export type UpdateFilingInput = Partial<CreateFilingInput> & FilingVersionInput;
 
 function validateExpectedVersion(input: FilingVersionInput): number {
@@ -66,6 +70,7 @@ export class FilingsService {
     user: AppUser,
     page = 1,
     limit = 20,
+    view?: string,
   ): Promise<(ComplianceFiling & { assignedReviewerName: string | null; createdByName: string | null; tenantName: string | null })[]> {
     if (
       !Number.isSafeInteger(page) ||
@@ -78,6 +83,10 @@ export class FilingsService {
       throw new BadRequestException(
         'page must be a positive integer; limit must be between 1 and 100',
       );
+    }
+
+    if (view !== undefined && view !== 'pending') {
+      throw new BadRequestException('Unsupported filings view');
     }
 
     let accessFilter: SQL | undefined;
@@ -123,7 +132,9 @@ export class FilingsService {
       .leftJoin(reviewer, eq(complianceFilings.assignedReviewerId, reviewer.id))
       .leftJoin(creator, eq(complianceFilings.createdBy, creator.id))
       .leftJoin(tenants, eq(complianceFilings.tenantId, tenants.id))
-      .where(accessFilter)
+      .where(and(accessFilter, view === 'pending'
+        ? inArray(complianceFilings.status, ['SUBMITTED', 'UNDER_REVIEW'])
+        : undefined))
       .orderBy(desc(complianceFilings.createdAt), desc(complianceFilings.id))
       .limit(limit)
       .offset((page - 1) * limit);
@@ -201,7 +212,10 @@ export class FilingsService {
       throw new ForbiddenException('Filing not found or access denied');
     }
 
-    if (filing.status !== 'DRAFT' || filing.version !== expectedVersion) {
+    if (filing.status !== 'DRAFT') {
+      throw new BadRequestException('Illegal filing status transition');
+    }
+    if (filing.version !== expectedVersion) {
       throw new ConflictException(
         'This filing has changed. Refresh it before trying again.',
       );
@@ -433,7 +447,10 @@ export class FilingsService {
       throw new ForbiddenException('Filing not found or access denied');
     }
 
-    if (draft.status !== 'DRAFT' || draft.version !== expectedVersion) {
+    if (draft.status !== 'DRAFT') {
+      throw new BadRequestException('Illegal filing status transition');
+    }
+    if (draft.version !== expectedVersion) {
       throw new ConflictException(
         'This filing has changed. Refresh it before trying again.',
       );
@@ -512,7 +529,6 @@ export class FilingsService {
         and(
           eq(complianceFilings.id, filingId),
           eq(complianceFilings.tenantId, user.tenantId),
-          eq(complianceFilings.status, 'SUBMITTED'),
         ),
       )
       .limit(1);
@@ -521,7 +537,10 @@ export class FilingsService {
       throw new ForbiddenException('Filing not found or access denied');
     }
 
-    if (filing.status !== 'SUBMITTED' || filing.version !== expectedVersion) {
+    if (filing.status !== 'SUBMITTED') {
+      throw new BadRequestException('Illegal filing status transition');
+    }
+    if (filing.version !== expectedVersion) {
       throw new ConflictException(
         'This filing has changed. Refresh it before trying again.',
       );
@@ -600,7 +619,6 @@ export class FilingsService {
         and(
           eq(complianceFilings.id, filingId),
           eq(complianceFilings.tenantId, user.tenantId),
-          eq(complianceFilings.status, 'UNDER_REVIEW'),
         ),
       )
       .limit(1);
@@ -609,7 +627,13 @@ export class FilingsService {
       throw new ForbiddenException('Filing not found or access denied');
     }
 
-    if (filing.status !== 'UNDER_REVIEW' || filing.version !== expectedVersion) {
+    if (filing.status === 'APPROVED' || filing.status === 'REJECTED') {
+      throw new ConflictException('This filing already has a final verdict');
+    }
+    if (filing.status !== 'UNDER_REVIEW') {
+      throw new BadRequestException('Illegal filing status transition');
+    }
+    if (filing.version !== expectedVersion) {
       throw new ConflictException(
         'This filing has changed. Refresh it before trying again.',
       );
@@ -671,7 +695,7 @@ export class FilingsService {
   async rejectFiling(
     user: AppUser,
     filingId: string,
-    input: FilingVersionInput,
+    input: RejectFilingInput,
   ): Promise<ComplianceFiling> {
     if (user.role !== 'AUDITOR' || !user.tenantId) {
       throw new ForbiddenException(
@@ -680,6 +704,10 @@ export class FilingsService {
     }
 
     const expectedVersion = validateExpectedVersion(input);
+    if (typeof input.rejectionReason !== 'string' || !input.rejectionReason.trim() || input.rejectionReason.trim().length > 2000) {
+      throw new BadRequestException('Rejection reason is required and must be at most 2000 characters');
+    }
+    const rejectionReason = input.rejectionReason.trim();
 
     const [filing] = await this.db
       .select()
@@ -688,7 +716,6 @@ export class FilingsService {
         and(
           eq(complianceFilings.id, filingId),
           eq(complianceFilings.tenantId, user.tenantId),
-          eq(complianceFilings.status, 'UNDER_REVIEW'),
         ),
       )
       .limit(1);
@@ -697,7 +724,13 @@ export class FilingsService {
       throw new ForbiddenException('Filing not found or access denied');
     }
 
-    if (filing.status !== 'UNDER_REVIEW' || filing.version !== expectedVersion) {
+    if (filing.status === 'APPROVED' || filing.status === 'REJECTED') {
+      throw new ConflictException('This filing already has a final verdict');
+    }
+    if (filing.status !== 'UNDER_REVIEW') {
+      throw new BadRequestException('Illegal filing status transition');
+    }
+    if (filing.version !== expectedVersion) {
       throw new ConflictException(
         'This filing has changed. Refresh it before trying again.',
       );
@@ -724,6 +757,7 @@ export class FilingsService {
         .update(complianceFilings)
         .set({
           status: 'REJECTED',
+          rejectionReason,
           assignedReviewerId: user.id,
           version: sql`${complianceFilings.version} + 1`,
           updatedAt: new Date(),
@@ -748,6 +782,7 @@ export class FilingsService {
         filingId: rejected.id,
         actorId: user.id,
         action: 'REJECT_FILING',
+        metadata: { rejectionReason },
         previousState: 'UNDER_REVIEW',
         newState: 'REJECTED',
       });

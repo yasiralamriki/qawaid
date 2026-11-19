@@ -48,7 +48,7 @@ async function fetchCurrentUser(): Promise<CurrentUser | null> {
 async function fetchCurrentFilings(): Promise<Filing[]> {
   const cookieStore = await cookies();
   const response = await fetch(
-    new URL("/api/filings?limit=50", process.env.API_URL ?? "http://localhost:4000"),
+    new URL("/api/filings?view=pending&limit=50", process.env.API_URL ?? "http://localhost:4000"),
     {
       headers: { cookie: cookieStore.toString() },
       cache: "no-store",

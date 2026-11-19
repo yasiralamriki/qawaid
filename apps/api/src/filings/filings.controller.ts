@@ -13,7 +13,7 @@ import {
 import { CurrentUser } from '@nestjs/authentication';
 import type { AppUser } from '../users/user.js';
 import type { ComplianceFiling } from '../database/schema.js';
-import type { CreateFilingInput, UpdateFilingInput, FilingVersionInput } from './filings.service.js';
+import type { CreateFilingInput, UpdateFilingInput, RejectFilingInput, FilingVersionInput } from './filings.service.js';
 import { FilingsService } from './filings.service.js';
 
 @Controller('filings')
@@ -25,8 +25,9 @@ export class FilingsController {
     @CurrentUser() user: AppUser,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('view') view?: string,
   ): Promise<ComplianceFiling[]> {
-    return this.filings.findForUser(user, page, limit);
+    return this.filings.findForUser(user, page, limit, view);
   }
 
   @Patch(':id')
@@ -104,7 +105,7 @@ export class FilingsController {
   rejectFiling(
     @CurrentUser() user: AppUser,
     @Param('id', ParseUUIDPipe) filingId: string,
-    @Body() input: FilingVersionInput,
+    @Body() input: RejectFilingInput,
   ): Promise<ComplianceFiling> {
     return this.filings.rejectFiling(user, filingId, input);
   }

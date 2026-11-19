@@ -3,6 +3,9 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Field, FieldGroup } from "@/components/ui/field";
+import { Label } from "@/components/ui/label";
 import { TableCell } from "@/components/ui/table";
 import type { FilingDetails } from "@/components/filing-drawer";
 
@@ -32,6 +35,8 @@ export function FilingActionsCell({
   const [pending, setPending] = useState(false);
   const [completedVersion, setCompletedVersion] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
   const completed = completedVersion === version;
 
   async function perform(action: Action) {
@@ -44,7 +49,7 @@ export function FilingActionsCell({
       const response = await fetch(`/api/filings/${encodeURIComponent(filingId)}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expectedVersion: version }),
+        body: JSON.stringify({ expectedVersion: version, ...(action === "reject" ? { rejectionReason: rejectionReason.trim() } : {}) }),
       });
       if (!response.ok) {
         throw new Error(response.status === 409
@@ -56,6 +61,10 @@ export function FilingActionsCell({
               : `Unable to ${label}. Please try again.`);
       }
       setCompletedVersion(version);
+      if (action === "reject") {
+        setRejecting(false);
+        setRejectionReason("");
+      }
       router.refresh();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : `Unable to ${label}. Please try again.`);
@@ -82,11 +91,36 @@ export function FilingActionsCell({
           {canDecide && (
             <div className="flex items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => perform("approve")} disabled={pending || completed}>Approve</Button>
-              <Button type="button" variant="destructive" size="sm" onClick={() => perform("reject")} disabled={pending || completed}>Reject</Button>
+              <Dialog open={rejecting} onOpenChange={(open) => {
+                if (inFlight.current) return;
+                setRejecting(open);
+                setError(null);
+              }}>
+                <DialogTrigger render={<Button type="button" variant="destructive" size="sm" disabled={pending || completed} />}>Reject</DialogTrigger>
+                <DialogContent className="sm:max-w-sm" showCloseButton={!pending}>
+                  <form className="space-y-6" onSubmit={(event) => { event.preventDefault(); void perform("reject"); }}>
+                  <DialogHeader>
+                    <DialogTitle>Reject filing</DialogTitle>
+                    <DialogDescription>Provide a reason for rejecting this filing. The submitter will be able to see it.</DialogDescription>
+                  </DialogHeader>
+                  <FieldGroup>
+                    <Field>
+                    <Label htmlFor={`rejection-reason-${filingId}`}>Rejection reason</Label>
+                      <textarea id={`rejection-reason-${filingId}`} className="min-h-32 w-full min-w-0 rounded-md border border-input bg-transparent px-2.5 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm dark:bg-input/30" value={rejectionReason} onChange={(event) => setRejectionReason(event.target.value)} required maxLength={2000} disabled={pending || completed} />
+                    </Field>
+                  </FieldGroup>
+                    {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+                    <DialogFooter>
+                      <Button type="button" variant="secondary" disabled={pending} onClick={() => setRejecting(false)}>Cancel</Button>
+                      <Button type="submit" variant="destructive" disabled={pending || completed || !rejectionReason.trim()}>{pending ? "Rejecting…" : "Confirm rejection"}</Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
           {canSubmit && !completed && <Button type="button" variant="outline" size="sm" onClick={() => perform("submit")} disabled={pending}>Submit</Button>}
-          {error && <p role="alert" className="max-w-48 whitespace-normal text-xs text-destructive">{error}</p>}
+          {error && !rejecting && <p role="alert" className="max-w-48 whitespace-normal text-xs text-destructive">{error}</p>}
         </div>
       )}
     </TableCell>
