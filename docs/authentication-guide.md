@@ -2,17 +2,17 @@
 
 This is a follow-along tutorial for your current repository, not a change to your application. All paths in code headings below are relative to `apps/api`, unless they start with `apps/web`. The examples target your installed NestJS 12, `@nestjs/authentication` 0.1.5 and Drizzle ORM 0.45.x. Run terminal commands from the repository root unless stated otherwise.
 
-## Current authorization snapshot — November 19, 2026
+## Current authorization snapshot — November 20, 2026
 
 This document remains a follow-along authentication tutorial. Current review authorization and task status are maintained in [remaining tasks](./remaining-tasks.md); tutorial examples are not a fresh application status report.
 
-- `/reviews` and its sidebar link are restricted to auditors.
+- Auditor review actions are part of `/filings`; `/reviews` redirects there. Submitters/admins receive their role-appropriate filing views.
 - Start Review, Approve, and Reject require AUDITOR plus the authenticated tenant; their updates check status and expected version.
 - Review actions do not require creator ownership. Submitter draft editing/submission still do.
 - Audit history permits own filings for submitters, permitted company filings for auditors, and global read-only access for system admins.
 - Admin visibility does not grant permission to review or mutate filings.
 
-Outstanding review checks include direct cross-tenant/admin API denial, real concurrent verdicts, and consistent stale-request responses. Rejection still needs a required reason. The review page's active-state filtering is also unfinished.
+Review rejection requires and saves a reason; pending SQL filtering and lifecycle/conflict responses are implemented. Seven isolated PostgreSQL/HTTP acceptance tests verify access, workflow integrity, registry retries/idempotency, and repeat seeding. The public mock creates synthetic in-memory verification results only; it does not read or modify application filings. The worker calls it without browser session credentials. WEB_ORIGIN controls the trusted frontend origin (default http://localhost:3000). See [required delivery status](./remaining-tasks.md) and the README; historical tutorial steps below are not an inventory of unfinished work.
 
 ## What you will build
 
@@ -592,3 +592,9 @@ Before exposing this to real users, add sign-in rate limiting, validate deployme
 The current [NestJS authentication guide](https://docs.nestjs.com/security/authentication) describes the first-party authentication package and its session/store extension points. This tutorial narrows the feature set to Qawaid's username login and current PostgreSQL schema. It is not the older Passport/JWT tutorial.
 
 The code above was authored for this repository and checked against the installed package declarations. Backend examples were type-checked in a temporary copy outside your repository; this is not a claim that the endpoints or migrations are already installed or live-tested. No application source files or database records were changed to produce this guide.
+
+## Navigation and mock simplification — November 20
+
+Review work now lives in Filings: auditors default to Pending Review and can select All Filings. Review actions and backend permissions are retained. The separate Review Queue sidebar item is removed; /reviews redirects to /filings. Audit history and verification results remain in the existing drawer.
+
+The mock controller is a simple public POST /mock-registry/verify endpoint, excluded from the /api prefix. It simulates approximately 30% 503 failures and caches successful synthetic results in memory. It does not query filings, require a service secret, or persist mock results. Duplicate keys replay the original result; successful filing results are also reused across attempts. The worker uses the assessment's filing-<uuid>-<attempt> key format. Mock memory resets on restart; durable jobs and saved references remain. This replaces earlier descriptions of a secret-protected, database-backed mock. The old registry_results table is retained only for migration compatibility.

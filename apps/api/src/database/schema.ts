@@ -85,3 +85,23 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type AuthSession = typeof authSessions.$inferSelect;
 export type NewAuthSession = typeof authSessions.$inferInsert;
+
+// Approval and its verification job commit together; leases allow crash recovery.
+export const registryJobs = pgTable('registry_jobs', {
+  filingId: uuid('filing_id').primaryKey().references(() => complianceFilings.id, { onDelete: 'cascade' }),
+  status: varchar('status', { length: 20 }).notNull().default('PENDING'),
+  attempts: integer('attempts').notNull().default(0),
+  nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+  leaseToken: uuid('lease_token'),
+  lastError: text('last_error'),
+  referenceId: varchar('reference_id', { length: 100 }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const registryResults = pgTable('registry_results', {
+  idempotencyKey: varchar('idempotency_key', { length: 160 }).primaryKey(),
+  filingId: uuid('filing_id').notNull().unique().references(() => complianceFilings.id, { onDelete: 'cascade' }),
+  identifierCr: varchar('identifier_cr', { length: 20 }).notNull(),
+  referenceId: varchar('reference_id', { length: 100 }).notNull(),
+  verifiedAt: timestamp('verified_at', { withTimezone: true }).notNull().defaultNow(),
+});

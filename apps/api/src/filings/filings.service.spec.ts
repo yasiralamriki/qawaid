@@ -11,7 +11,7 @@ const user: AppUser = {
   username: 'aram.submitter',
   tenantId: '22222222-2222-4222-8222-222222222222',
   tenantName: 'Aram Organics',
-  tenantIdentifierCr: null,
+  tenantIdentifierCr: 'DEMO-ARAM',
   role: 'SUBMITTER',
 };
 
@@ -362,7 +362,7 @@ describe.each([
       expect(where).toContain(`"compliance_filings"."${column}" =`);
     }
     expect(parameters).toEqual(expect.arrayContaining([filing.id, auditor.tenantId, status, 'UNDER_REVIEW', 4]));
-    expect(query).toHaveBeenCalledTimes(2);
+    expect(query).toHaveBeenCalledTimes(method === 'approveFiling' ? 3 : 2);
     expect(query.mock.calls[1][1]).toEqual(expect.arrayContaining([action, 'UNDER_REVIEW', status]));
     if (method === 'rejectFiling') {
       expect(parameters).toContain('Missing evidence');
@@ -475,6 +475,6 @@ describe('Competing verdicts', () => {
     expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
     const failure = results.find((result) => result.status === 'rejected');
     expect(failure?.reason).toBeInstanceOf(ConflictException);
-    expect(query.mock.calls.filter(([config]) => (config as unknown as { text: string }).text.startsWith('insert'))).toHaveLength(1);
+    expect(query.mock.calls.filter(([config]) => (config as unknown as { text: string }).text.startsWith('insert into "audit_logs"'))).toHaveLength(1);
   });
 });

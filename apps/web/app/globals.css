@@ -225,3 +225,10 @@
     top: calc(var(--grid-pattern-oy) + round(down, var(--grid-pattern-v, 0.5) * 100cqh - var(--grid-pattern-oy), var(--grid-pattern-size, 40px)) + var(--grid-pattern-line-width, 1px));
     width: calc(var(--grid-pattern-size, 40px) - var(--grid-pattern-line-width, 1px));
 }
+
+/* Directional layout follows the header's Arabic/English toggle. */
+html[dir="rtl"] { font-family: Tahoma, Arial, sans-serif; }
+html[dir="rtl"] body { line-height: 1.7; }
+html[dir="rtl"] [data-slot="table-head"],
+html[dir="rtl"] [data-slot="table-cell"] { text-align: start; }
+html[dir="rtl"] [data-slot="drawer-content"] { text-align: right; }

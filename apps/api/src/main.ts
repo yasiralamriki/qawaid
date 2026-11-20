@@ -3,9 +3,9 @@ import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api', { exclude: ['mock-registry/verify'] });
   app.enableShutdownHooks();
-  app.enableCsrfProtection({ trustedOrigins: ['http://localhost:3000']})
+  app.enableCsrfProtection({ trustedOrigins: [process.env.WEB_ORIGIN ?? 'http://localhost:3000']})
   await app.listen(process.env.PORT ?? 4000);
 }
 

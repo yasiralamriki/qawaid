@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { FilingActionsCell } from "@/components/filing-actions-cell";
 import { FilingDrawer, type FilingDetails } from "@/components/filing-drawer";
 import { DrawerTrigger } from "@/components/ui/drawer";
@@ -110,7 +111,7 @@ async function fetchDashboardStats(): Promise<{
   return response.json();
 }
 
-export default async function Dashboard() {
+async function DashboardContent() {
   const userData = await fetchCurrentUser();
   const filingsData = await fetchLatestFilings();
   const dashboardStats = await fetchDashboardStats();
@@ -125,7 +126,8 @@ export default async function Dashboard() {
   return (
     <div className="flex flex-col h-full w-full items-top justify-left p-8 gap-6">
       <h1 className="text-2xl font-bold">Welcome back, {userData && userData.username}!</h1>
-      <div className="flex flex-row justify-between gap-6">
+      <p className="text-sm text-muted-foreground">{dashboardStats.totalFilings} filings in your authorized scope.</p>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
         <Card className="flex-1 justify-center items-center">
           <h1 className="text-3xl font-bold text-muted-foreground">{dashboardStats.draftFilings}</h1>
           <p className="text-xl text-foreground">Drafts</p>
@@ -162,14 +164,14 @@ export default async function Dashboard() {
           <Table aria-label={title} className="min-w-[960px]">
             <TableHeader className="bg-muted/40">
               <TableRow className="hover:bg-transparent [&>th]:h-11 [&>th]:text-xs [&>th]:font-medium [&>th]:text-muted-foreground">
-                <TableHead className="w-[30%] pl-5 sm:pl-6">Title</TableHead>
+                <TableHead className="w-[30%] ps-5 sm:ps-6">Title</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Expiration date</TableHead>
                 <TableHead>Created at</TableHead>
                 <TableHead>Last Updated</TableHead>
                 <TableHead>Reviewer</TableHead>
-                <TableHead className="w-28 pr-5 text-right sm:pr-6">Actions</TableHead>
+                <TableHead className="w-28 pe-5 text-end sm:pe-6">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -186,7 +188,7 @@ export default async function Dashboard() {
                     aria-label={`View filing: ${filing.title}`}
                     className="cursor-pointer transition-colors hover:bg-primary/[0.03] focus-visible:outline-2 focus-visible:outline-ring [&>td]:py-4"
                   >
-                    <TableCell className="pl-5 font-medium sm:pl-6">
+                    <TableCell className="ps-5 font-medium sm:ps-6">
                       <div className="flex items-center gap-3">
                         <FileText
                           className="size-4 shrink-0 text-muted-foreground"
@@ -239,7 +241,7 @@ export default async function Dashboard() {
                     filingId={filing.id}
                       version={filing.version}
                       isDraft={filing.status === "DRAFT" && userData?.role === "SUBMITTER"}
-                      isAuditor={userData?.role === "AUDITOR" && filing.status === "SUBMITTED"}
+                      isAuditor={userData?.role === "AUDITOR"}
                     />
                   </DrawerTrigger>
                   </FilingDrawer>
@@ -277,4 +279,8 @@ export default async function Dashboard() {
       </div>
     </div>
   );
+}
+
+export default function Dashboard() {
+  return <Suspense fallback={<p role="status" className="p-8 text-sm text-muted-foreground">Loading dashboard…</p>}><DashboardContent /></Suspense>;
 }

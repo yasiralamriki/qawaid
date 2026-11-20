@@ -21,12 +21,17 @@ interface AuditEvent {
   id: string;
   action: string;
   actorName: string | null;
+  metadata: Record<string, unknown> | null;
   previousState: string | null;
   newState: string | null;
   timestamp: string | null;
 }
 
 export interface FilingDetails {
+  externalReferenceId?: string | null;
+  verificationStatus?: string | null;
+  verificationAttempts?: number | null;
+  verificationError?: string | null;
   id: string;
   title: string;
   category: string;
@@ -172,6 +177,10 @@ export function FilingDrawer({
                 : "—"],
               ...(filing.status === "REJECTED" ? [["Rejection reason", filing.rejectionReason ?? "—"]] : []),
               ["Version", filing.version],
+              ["Registry verification", filing.verificationStatus ?? "Not requested"],
+              ["Verification attempts", filing.verificationAttempts ?? 0],
+              ["External reference", filing.externalReferenceId ?? "—"],
+              ...(filing.verificationError ? [["Registry error", filing.verificationError]] : []),
               ["ID", filing.id],
               ["Tenant", filing.tenantName ?? "Unknown tenant"],
               ["Reviewer", filing.assignedReviewerName ?? "Unassigned"],
@@ -246,13 +255,14 @@ export function FilingDrawer({
                     </TraceLine>
                   </TraceCollapsibleTrigger>
                   {event.timestamp && (
-                    <TraceDescription className="ml-6 mt-1 text-xs">
+                    <TraceDescription className="ms-6 mt-1 text-xs">
                       <time dateTime={event.timestamp}>{new Date(event.timestamp).toLocaleString()}</time>
                     </TraceDescription>
                   )}
                   <TraceCollapsibleContent className="space-y-2 text-sm">
                     <p>{event.previousState ?? "—"} → {event.newState ?? "—"}</p>
                     <p className="break-all">Actor: {event.actorName ?? "Unknown user"}</p>
+                    {event.metadata && <pre className="whitespace-pre-wrap break-words rounded-md bg-muted p-3 text-xs" dir="ltr">{JSON.stringify(event.metadata, null, 2)}</pre>}
                   </TraceCollapsibleContent>
                 </TraceCollapsible>
               ))}

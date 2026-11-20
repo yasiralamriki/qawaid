@@ -4,6 +4,8 @@ import { DatabaseModule } from './database/database.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { MockRegistryController } from './mock-registry/mock-registry.controller.js';
+import { RegistryWorker } from './mock-registry/registry.worker.js';
 import { FilingsModule } from './filings/filings.module.js';
 
 @Module({
@@ -13,13 +15,13 @@ import { FilingsModule } from './filings/filings.module.js';
       session: {
         absoluteTtl: '7d',
         idleTtl: '1d',
-        trustedOrigins: ['http://localhost:3000'],
+        trustedOrigins: [process.env.WEB_ORIGIN ?? 'http://localhost:3000'],
       },
     }),
     AuthModule,
     FilingsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, MockRegistryController],
+  providers: [AppService, RegistryWorker],
 })
 export class AppModule {}

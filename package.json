@@ -22,7 +22,10 @@
     "docker:status": "docker compose ps",
     "docker:db:generate": "docker compose exec api pnpm db:generate",
     "docker:db:migrate": "docker compose exec api pnpm db:migrate",
-    "docker:db:push": "docker compose exec api pnpm db:push"
+    "docker:db:push": "docker compose exec api pnpm db:push",
+    "test": "pnpm --dir apps/api test",
+    "test:integration": "pnpm --dir apps/api test:e2e",
+    "check": "pnpm --dir apps/api exec tsc --noEmit --incremental false && pnpm --dir apps/web exec tsc --noEmit --incremental false"
   },
   "devDependencies": {
     "concurrently": "^10.0.7"

@@ -26,9 +26,10 @@ services:
       dockerfile: Dockerfile.dev
     init: true
     working_dir: /workspace/apps/api
-    command: pnpm start:dev
+    command: sh -c "pnpm db:migrate && pnpm auth:seed && pnpm start:dev"
     environment:
       PORT: "4000"
+      SEED_PASSWORD: ${SEED_PASSWORD:-temporary-dev-password}
       PGHOST: postgres
       PGPORT: "5432"
       PGUSER: ${POSTGRES_USER:-qawaid}
@@ -51,7 +52,7 @@ services:
       interval: 5s
       timeout: 10s
       retries: 12
-      start_period: 30s
+      start_period: 90s
 
   web:
     build:

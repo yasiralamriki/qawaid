@@ -8,8 +8,9 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar"
 import { Button } from "@/ui/button";
-import { BuildingComplex, FileText, Gavel, LayoutDashboard, LogOut, Stamp, UserRound } from "lucide-react"
+import { BuildingComplex, FileText, LayoutDashboard, LogOut, UserRound } from "lucide-react"
 import Link from "next/link";
+import { useLanguage } from "@/components/language-toggle";
 import { useState } from "react";
 
 interface MenuSidebarProps {
@@ -19,6 +20,7 @@ interface MenuSidebarProps {
 }
 
 export function MenuSidebar({ tenantName, tenantRole, username }: MenuSidebarProps) {
+  const { arabic } = useLanguage();
   const [signingOut, setSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
 
@@ -40,7 +42,7 @@ export function MenuSidebar({ tenantName, tenantRole, username }: MenuSidebarPro
   }
 
   return (
-    <Sidebar>
+    <Sidebar side={arabic ? "right" : "left"} dir={arabic ? "rtl" : "ltr"}>
       <SidebarHeader className="border-b border-sidebar-border px-4 py-5">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-inset ring-primary/20">
@@ -66,18 +68,6 @@ export function MenuSidebar({ tenantName, tenantRole, username }: MenuSidebarPro
           <Link href='/filings' className="w-full">
             <Button variant='ghost' className="w-full justify-start">
               <FileText />Filings
-            </Button>
-          </Link>
-          {tenantRole === "AUDITOR" && (
-            <Link href='/reviews' className="w-full">
-              <Button variant='ghost' className="w-full justify-start">
-                <Gavel />Review Queue
-              </Button>
-            </Link>
-          )}
-          <Link href='/registry-verifications' className="w-full">
-            <Button variant='ghost' className="w-full justify-start">
-              <Stamp />Registry Verifications
             </Button>
           </Link>
         </SidebarGroup>

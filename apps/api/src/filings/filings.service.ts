@@ -11,6 +11,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type { AppUser } from '../users/user.js';
 import {
   auditLogs,
+  registryJobs,
   tenants,
   users,
   complianceFilings,
@@ -21,6 +22,7 @@ const reviewer = alias(users, 'reviewer');
 const creator = alias(users, 'creator');
 
 export interface CreateFilingInput {
+  identifierCr?: string;
   title: string;
   category: string;
   expirationDate: string;
@@ -127,11 +129,15 @@ export class FilingsService {
         assignedReviewerName: reviewer.username,
         createdByName: creator.username,
         tenantName: tenants.name,
+        verificationStatus: registryJobs.status,
+        verificationAttempts: registryJobs.attempts,
+        verificationError: registryJobs.lastError,
       })
       .from(complianceFilings)
       .leftJoin(reviewer, eq(complianceFilings.assignedReviewerId, reviewer.id))
       .leftJoin(creator, eq(complianceFilings.createdBy, creator.id))
       .leftJoin(tenants, eq(complianceFilings.tenantId, tenants.id))
+      .leftJoin(registryJobs, eq(complianceFilings.id, registryJobs.filingId))
       .where(and(accessFilter, view === 'pending'
         ? inArray(complianceFilings.status, ['SUBMITTED', 'UNDER_REVIEW'])
         : undefined))
@@ -269,6 +275,7 @@ export class FilingsService {
         filingId: updated.id,
         actorId: user.id,
         action: 'UPDATE_FILING',
+        metadata: { before: { title: filing.title, category: filing.category, expirationDate: filing.expirationDate }, after: { title, category, expirationDate } },
       });
 
       return updated;
@@ -282,11 +289,15 @@ export class FilingsService {
     approvedFilings: number;
     rejectedFilings: number;
   }> {
-    if (!user.tenantId) {
+    if (user.role !== 'SYSTEM_ADMIN' && !user.tenantId) {
       throw new ForbiddenException('A company is required');
     }
 
-    const tenantFilter = eq(complianceFilings.tenantId, user.tenantId);
+    const tenantFilter = user.role === 'SYSTEM_ADMIN' ? undefined : and(
+      eq(complianceFilings.tenantId, user.tenantId!),
+      user.role === 'SUBMITTER' ? eq(complianceFilings.createdBy, user.id) : undefined,
+      user.role === 'AUDITOR' ? inArray(complianceFilings.status, ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED']) : undefined,
+    );
 
     const [total, draft, submitted, approved, rejected] = await Promise.all([
       this.db
@@ -346,6 +357,13 @@ export class FilingsService {
     }
 
     const tenantId = user.tenantId;
+    if (input?.identifierCr !== undefined && (typeof input.identifierCr !== 'string' || input.identifierCr.trim() !== user.tenantIdentifierCr)) {
+      throw new BadRequestException('Company registration must match your account company');
+    }
+    if (submitForReview && (!user.tenantIdentifierCr || !user.tenantIdentifierCr.trim())) {
+      throw new BadRequestException('Company registration is required for submission');
+    }
+
 
     if (
       typeof input?.title !== 'string' ||
@@ -427,6 +445,10 @@ export class FilingsService {
       throw new ForbiddenException(
         'Only submitters with a company can create filings',
       );
+    }
+
+    if (!user.tenantIdentifierCr?.trim()) {
+      throw new BadRequestException('Company registration is required for submission');
     }
 
     const expectedVersion = validateExpectedVersion(input);
@@ -687,6 +709,8 @@ export class FilingsService {
         previousState: 'UNDER_REVIEW',
         newState: 'APPROVED',
       });
+
+      await tx.insert(registryJobs).values({ filingId: approved.id }).onConflictDoNothing();
 
       return approved;
     });
